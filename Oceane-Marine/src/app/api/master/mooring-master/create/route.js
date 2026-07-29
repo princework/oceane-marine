@@ -13,10 +13,19 @@ export async function POST(req) {
       );
     }
     await connectDB();
-    const { name } = await req.json();
+    const { name, email } = await req.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    }
+
+    if (!email || !email.trim()) {
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return NextResponse.json({ error: "Invalid email format" }, { status: 400 });
     }
 
     // Case-insensitive duplicate check
@@ -33,6 +42,7 @@ export async function POST(req) {
 
     const newMooringMaster = await MooringMaster.create({
       name: name.trim(),
+      email: email.trim().toLowerCase(),
       availabilityStatus: "AVAILABLE",
       currentOperation: null,
     });

@@ -16,11 +16,13 @@ import {
 export default function MooringMasterPage() {
   const [items, setItems] = useState([]);
   const [value, setValue] = useState("");
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState({});
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const { isSidebarOpen, setIsSidebarOpen } = useOperationsSidebar();
   const [expandedModules, setExpandedModules] = useState(new Set());
@@ -69,16 +71,21 @@ export default function MooringMasterPage() {
     e.preventDefault();
     setError("");
     if (!value.trim()) return;
+    if (!email.trim()) {
+      setError("Email is required");
+      return;
+    }
     try {
       setLoading(true);
       const res = await fetch("/api/master/mooring-master/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: value.trim() }),
+        body: JSON.stringify({ name: value.trim(), email: email.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create");
       setValue("");
+      setEmail("");
       await load();
     } catch (err) {
       setError(err.message);
@@ -91,21 +98,27 @@ export default function MooringMasterPage() {
     setError("");
     setEditingId(item._id);
     setEditName(item.name || "");
+    setEditEmail(item.email || "");
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditName("");
+    setEditEmail("");
   };
 
   const saveEdit = async () => {
     if (!editingId || !editName.trim()) return;
+    if (!editEmail.trim()) {
+      setError("Email is required");
+      return;
+    }
     try {
       setEditSaving(true);
       const res = await fetch(`/api/master/mooring-master/${editingId}/update`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editName.trim() }),
+        body: JSON.stringify({ name: editName.trim(), email: editEmail.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to update");
@@ -403,6 +416,16 @@ export default function MooringMasterPage() {
               className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 text-sm text-white placeholder:text-white/40 focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 outline-none transition-all backdrop-blur-sm"
             />
           </div>
+          <div className="flex-1 relative">
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter email address"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 text-sm text-white placeholder:text-white/40 focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 outline-none transition-all backdrop-blur-sm"
+            />
+          </div>
           <button
             type="submit"
             disabled={loading}
@@ -516,6 +539,9 @@ export default function MooringMasterPage() {
                   Name
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-white/70 uppercase tracking-wider">
+                  Email
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-white/70 uppercase tracking-wider">
                   Availability
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-white/70 uppercase tracking-wider">
@@ -557,6 +583,35 @@ export default function MooringMasterPage() {
                     )}
                   </td>
                   <td className="px-6 py-4">
+                    {editingId === item._id ? (
+                      <input
+                        type="email"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") cancelEdit();
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            saveEdit();
+                          }
+                        }}
+                        disabled={editSaving}
+                        placeholder="email@example.com"
+                        className="w-full max-w-md rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/40 focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/30 outline-none disabled:opacity-60"
+                        aria-label="Edit mooring master email"
+                      />
+                    ) : item.email ? (
+                      <a
+                        href={`mailto:${item.email}`}
+                        className="text-sky-300 hover:text-sky-200 hover:underline"
+                      >
+                        {item.email}
+                      </a>
+                    ) : (
+                      <span className="text-white/40">—</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
                     <div
                       className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold ${
                         item.availabilityStatus === "AVAILABLE"
@@ -583,7 +638,7 @@ export default function MooringMasterPage() {
                           <button
                             type="button"
                             onClick={saveEdit}
-                            disabled={editSaving || !editName.trim()}
+                            disabled={editSaving || !editName.trim() || !editEmail.trim()}
                             className="rounded-lg border border-emerald-400/50 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {editSaving ? "Saving…" : "Save"}
@@ -617,7 +672,7 @@ export default function MooringMasterPage() {
               ))}
               {!items.length && (
                 <tr>
-                  <td className="px-6 py-12 text-center" colSpan={4}>
+                  <td className="px-6 py-12 text-center" colSpan={5}>
                     <div className="flex flex-col items-center gap-3">
                       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 border border-white/10">
                         <svg
