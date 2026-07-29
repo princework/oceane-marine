@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//tmp/**)",
+      "Bash(rm -f scripts/_verify-list.mjs)",
+      "Read(//c/tmp/**)"
+    ]
+  }
+}

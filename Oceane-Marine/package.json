@@ -1,0 +1,51 @@
+{
+  "name": "oceane-marine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "dev:all": "trap 'kill 0' INT TERM EXIT; npm run dev & npm run worker & wait",
+    "build": "next build",
+    "start": "next start",
+    "worker": "node src/workers/worker.js",
+    "lint": "eslint",
+    "test:cid-email": "node scripts/test-cid-expiry-email.mjs",
+    "test:sts-doc-email": "node scripts/test-sts-documentation-email.mjs",
+    "test:pms-testing-email": "node scripts/test-pms-testing-email.mjs",
+    "test:email": "node scripts/send-test-email.mjs"
+  },
+  "dependencies": {
+    "agenda": "^5.0.0",
+    "bcryptjs": "^3.0.3",
+    "chart.js": "^4.5.1",
+    "cloudinary": "^2.8.0",
+    "docx": "^9.5.1",
+    "dotenv": "^17.2.4",
+    "file-saver": "^2.0.5",
+    "jsonwebtoken": "^9.0.3",
+    "jspdf": "^4.2.0",
+    "jspdf-autotable": "^5.0.7",
+    "jszip": "^3.10.1",
+    "leaflet": "^1.9.4",
+    "libreoffice-convert": "^1.8.1",
+    "mongodb": "^7.0.0",
+    "mongoose": "^9.0.1",
+    "next": "16.0.7",
+    "node-cron": "^4.2.1",
+    "pdf-lib": "^1.17.1",
+    "puppeteer": "^24.37.2",
+    "react": "19.2.0",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "19.2.0",
+    "react-leaflet": "^5.0.0",
+    "resend": "^6.9.4",
+    "zustand": "^5.0.9"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.7",
+    "tailwindcss": "^4"
+  }
+}

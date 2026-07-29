@@ -1,0 +1,272 @@
+@import "tailwindcss";
+
+:root {
+  --background: #08334f;
+  --foreground: #ededed;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+  --background: #08334f;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+html {
+  scroll-behavior: smooth;
+  color-scheme: dark;
+}
+
+/* Unified dark select styling (apply with className="theme-select") */
+.theme-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: #0b2740;
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 0.75rem;
+  padding: 0.35rem 2.5rem 0.35rem 0.75rem;
+  line-height: 1.4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23e2e8f0' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.8rem center !important;
+  background-size: 1rem !important;
+}
+.theme-select:focus {
+  outline: 2px solid rgba(249, 115, 22, 0.5);
+  outline-offset: 0;
+}
+.theme-select option {
+  background-color: #0b2740;
+  color: #e2e8f0;
+}
+.theme-select option:checked ,
+.theme-select option:hover {
+  background-color: #1b3d5c;
+  color: #ffffff;
+}
+
+/*
+ * Custom <button> dropdowns (OperationsSelectField): match .theme-select colors/border but
+ * do NOT set a background chevron — the component renders the SVG arrow.
+ */
+.ops-select-trigger {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: #0b2740;
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 0.75rem;
+  line-height: 1.4;
+}
+.ops-select-trigger:focus {
+  outline: 2px solid rgba(249, 115, 22, 0.5);
+  outline-offset: 0;
+}
+
+/* Legacy: if theme-select is still on a custom trigger, strip the BG chevron. */
+button.operations-select-trigger {
+  background-image: none !important;
+}
+button.operations-select-trigger.theme-select {
+  background-image: none !important;
+  background-repeat: no-repeat !important;
+}
+
+/* Scrollable custom dropdown panels (#0b2740 shell) — avoid default light browser scrollbars */
+.ops-select-list-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.5) #0b2740;
+}
+.ops-select-list-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.ops-select-list-scroll::-webkit-scrollbar-track {
+  background: #082036;
+  border-radius: 6px;
+}
+.ops-select-list-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 6px;
+  border: 2px solid #0b2740;
+}
+.ops-select-list-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(226, 232, 240, 0.45);
+}
+
+/* Default dark styling for all selects (matches .theme-select) */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: #0b2740 !important;
+  color: #e2e8f0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  border-radius: 0.75rem !important;
+  padding: 0.35rem 2.5rem 0.35rem 0.75rem !important;
+  line-height: 1.4;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23e2e8f0' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.8rem center !important;
+  background-size: 1rem !important;
+}
+
+select:focus {
+  outline: 2px solid rgba(249, 115, 22, 0.5);
+  outline-offset: 0;
+}
+
+select option {
+  background-color: #0b2740;
+  color: #e2e8f0;
+}
+
+select option:checked,
+select option:hover {
+  background-color: #1b3d5c;
+  color: #ffffff;
+}
+
+/* Date picker icon to white */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.4);
+  opacity: 0.9;
+}
+
+/* Override browser autofill/autocomplete background — keep it transparent */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+textarea:-webkit-autofill:active,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus,
+select:-webkit-autofill:active {
+  -webkit-text-fill-color: #e2e8f0 !important;
+  -webkit-box-shadow: 0 0 0 0 transparent inset !important;
+  box-shadow: 0 0 0 0 transparent inset !important;
+  background-color: inherit !important;
+  border-color: inherit !important;
+  transition: background-color 600000s 0s, color 600000s 0s, -webkit-box-shadow 600000s 0s;
+  caret-color: #e2e8f0;
+}
+
+/* ── Leaflet map overrides ── */
+.leaflet-container {
+  background: #dce6f0 !important;   /* light blue-gray while tiles load */
+}
+.leaflet-control-attribution {
+  display: none !important;  /* Hide attribution/copyright text */
+}
+.leaflet-popup-content-wrapper {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important;
+}
+.leaflet-popup-tip {
+  background: #ffffff !important;
+}
+.leaflet-popup-close-button {
+  color: #64748b !important;
+}
+
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Dark scrollbar (Operations-style): black thumb, invisible track — use on sidebars + modals */
+.sidebar-scrollbar-dark {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.5) transparent;
+}
+.sidebar-scrollbar-dark::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.sidebar-scrollbar-dark::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scrollbar-dark::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.55);
+  border-radius: 9999px;
+}
+.sidebar-scrollbar-dark:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+/* QHSE data tables: horizontal scroll thumb/track (dark slate, matches QHSE panels) */
+.qhse-table-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(71 85 105 / 0.95) rgb(15 23 42 / 0.75);
+}
+.qhse-table-scroll::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+.qhse-table-scroll::-webkit-scrollbar-track {
+  background: rgb(15 23 42 / 0.65);
+  border-radius: 9999px;
+}
+.qhse-table-scroll::-webkit-scrollbar-thumb {
+  background: rgb(51 65 85 / 0.95);
+  border-radius: 9999px;
+  border: 2px solid rgb(15 23 42 / 0.35);
+}
+.qhse-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgb(71 85 105 / 0.98);
+}
+
+/**
+ * Dark-theme scrollbars for PMS panels / tables (#0b2740 family).
+ * Class is used across PMS dashboard, equipment lists, and charts.
+ */
+.styled-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(100 116 139 / 0.7) rgb(11 39 64 / 0.85);
+}
+.styled-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.styled-scrollbar::-webkit-scrollbar-track {
+  background: rgb(11 39 64 / 0.8);
+  border-radius: 9999px;
+}
+.styled-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(100 116 139 / 0.55);
+  border-radius: 9999px;
+  border: 2px solid rgb(11 39 64 / 0.45);
+}
+.styled-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(56 189 248 / 0.5);
+}
+.styled-scrollbar::-webkit-scrollbar-corner {
+  background: rgb(11 39 64 / 0.8);
+}

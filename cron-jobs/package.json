@@ -1,0 +1,16 @@
+{
+  "name": "oceane-marine-cron-jobs",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone scheduler: HTTP GET to Oceane-Marine /api/cron/* email jobs",
+  "scripts": {
+    "start": "node src/index.js",
+    "run-once": "node src/run-once.js",
+    "run-once:all": "node src/run-once.js --all"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.4",
+    "node-cron": "^3.0.3"
+  }
+}
