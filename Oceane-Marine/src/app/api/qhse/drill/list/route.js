@@ -20,7 +20,7 @@ export async function GET(req) {
     const includeArchived =
       includeArchivedParam === "1" || includeArchivedParam === "true";
 
-    const planQuery = { "planItems.status": "Approved" };
+    const planQuery = { status: "Approved" };
     const reportQuery = {};
     if (!includeArchived) {
       planQuery.isArchived = { $ne: true };

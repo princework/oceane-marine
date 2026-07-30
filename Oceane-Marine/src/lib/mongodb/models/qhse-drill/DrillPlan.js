@@ -20,7 +20,13 @@ const QuarterlyDrillSchema = new mongoose.Schema(
     topic: { type: String, required: true, trim: true },
     instructor: { type: String, trim: true },
     description: { type: String, trim: true },
-    status: { type: String, enum: ["Draft", "Approved"], default: "Draft", index: true },
+    /** Denormalized copy of the parent plan's status, kept in sync by the approve/reject/create routes. */
+    status: {
+      type: String,
+      enum: ["Draft", "Pending Approval", "Approved", "Rejected"],
+      default: "Draft",
+      index: true,
+    },
   },
   { _id: true } // keep subdoc ids so we can reference a specific plan item
 );
@@ -79,6 +85,34 @@ const DrillPlanSchema = new mongoose.Schema(
 
     approvedAt: {
       type: Date,
+    },
+
+    rejectionReason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    rejectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    rejectedAt: {
+      type: Date,
+    },
+
+    /** Editor who created/last resubmitted this plan. */
+    submittedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    status: {
+      type: String,
+      enum: ["Draft", "Pending Approval", "Approved", "Rejected"],
+      default: "Draft",
+      index: true,
     },
   },
   { timestamps: true }

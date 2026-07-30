@@ -74,6 +74,24 @@ const toDateInputValue = (value) => {
   return new Date(d.getTime() - tzOffset).toISOString().slice(0, 10);
 };
 
+const STATUS_BADGE_STYLES = {
+  Draft: { dot: "bg-slate-400", pill: "border-slate-400/40 bg-slate-500/10 text-slate-200" },
+  "Pending Approval": { dot: "bg-amber-400", pill: "border-amber-400/40 bg-amber-500/10 text-amber-200" },
+  Approved: { dot: "bg-emerald-400", pill: "border-emerald-400/40 bg-emerald-500/10 text-emerald-200" },
+  Rejected: { dot: "bg-red-400", pill: "border-red-400/40 bg-red-500/10 text-red-200" },
+};
+
+function StatusPill({ status }) {
+  const label = status || "Draft";
+  const style = STATUS_BADGE_STYLES[label] || STATUS_BADGE_STYLES.Draft;
+  return (
+    <div className={`flex items-center gap-2 rounded-full border px-3 py-1 ${style.pill}`}>
+      <span className={`h-2 w-2 rounded-full ${style.dot}`}></span>
+      <span className="text-xs font-semibold uppercase tracking-wide">Status: {label}</span>
+    </div>
+  );
+}
+
 function monthPairIndexForPlannedDate(plannedDate) {
   if (!plannedDate) return -1;
   const month = new Date(plannedDate).getMonth();
@@ -116,6 +134,8 @@ export default function TrainingPlanPage({ hideSidebar = false }) {
     "Nov-Dec": null,
   });
   const [existingPlanId, setExistingPlanId] = useState(null);
+  const [existingPlanStatus, setExistingPlanStatus] = useState(null);
+  const [existingPlanRejectionReason, setExistingPlanRejectionReason] = useState("");
   const [loadingPlan, setLoadingPlan] = useState(false);
 
   useEffect(() => {
@@ -124,13 +144,15 @@ export default function TrainingPlanPage({ hideSidebar = false }) {
       setLoadingPlan(true);
       setError(null);
       try {
-        const res = await fetch(`/api/qhse/training/plan?year=${year}`);
+        const res = await fetch(`/api/qhse/training/plan?year=${year}&mine=1`);
         const data = await readJsonFromResponse(res);
         if (!active) return;
 
         if (res.ok && data.success && data.data) {
           const plan = data.data;
           setExistingPlanId(plan._id);
+          setExistingPlanStatus(plan.status || null);
+          setExistingPlanRejectionReason(plan.rejectionReason || "");
           const next = buildEmptyMonthDataForYear(year);
           for (const item of plan.planItems || []) {
             const idx = monthPairIndexForPlannedDate(item.plannedDate);
@@ -147,11 +169,15 @@ export default function TrainingPlanPage({ hideSidebar = false }) {
           setMonthData(next);
         } else {
           setExistingPlanId(null);
+          setExistingPlanStatus(null);
+          setExistingPlanRejectionReason("");
           setMonthData(buildEmptyMonthDataForYear(year));
         }
       } catch {
         if (active) {
           setExistingPlanId(null);
+          setExistingPlanStatus(null);
+          setExistingPlanRejectionReason("");
           setMonthData(buildEmptyMonthDataForYear(year));
         }
       } finally {
@@ -283,14 +309,17 @@ export default function TrainingPlanPage({ hideSidebar = false }) {
         );
       }
 
-      if (data.data?._id) {
-        setExistingPlanId(data.data._id);
+      const savedPlan = data.data;
+      if (savedPlan?._id) {
+        setExistingPlanId(savedPlan._id);
+        setExistingPlanStatus(savedPlan.status || null);
+        setExistingPlanRejectionReason(savedPlan.rejectionReason || "");
       }
 
       setMessage(
         isUpdate
-          ? `Training plan for ${year} updated successfully`
-          : `Training plan for ${year} saved successfully`
+          ? `Training plan for ${year} resubmitted for approval`
+          : `Training plan for ${year} submitted for approval`
       );
       setError(null);
 
@@ -303,32 +332,26 @@ export default function TrainingPlanPage({ hideSidebar = false }) {
         "Nov-Dec": null,
       });
 
-      if (isUpdate) {
-        const refreshRes = await fetch(`/api/qhse/training/plan?year=${year}`);
-        const refreshData = await readJsonFromResponse(refreshRes);
-        if (refreshRes.ok && refreshData.success && refreshData.data) {
-          const plan = refreshData.data;
-          setExistingPlanId(plan._id);
-          const next = buildEmptyMonthDataForYear(year);
-          for (const item of plan.planItems || []) {
-            const idx = monthPairIndexForPlannedDate(item.plannedDate);
-            if (idx >= 0) {
-              const day = dayFromDateInput(toDateInputValue(item.plannedDate), 1);
-              next[idx] = {
-                plannedDate: formatDateInput(year, MONTH_PAIRS[idx].months[0], day),
-                topic: item.topic || "",
-                instructor: item.instructor || "",
-                description: item.description || "",
-              };
-            }
+      if (isUpdate && savedPlan) {
+        const next = buildEmptyMonthDataForYear(year);
+        for (const item of savedPlan.planItems || []) {
+          const idx = monthPairIndexForPlannedDate(item.plannedDate);
+          if (idx >= 0) {
+            const day = dayFromDateInput(toDateInputValue(item.plannedDate), 1);
+            next[idx] = {
+              plannedDate: formatDateInput(year, MONTH_PAIRS[idx].months[0], day),
+              topic: item.topic || "",
+              instructor: item.instructor || "",
+              description: item.description || "",
+            };
           }
-          setMonthData(next);
         }
-      } else {
+        setMonthData(next);
+      } else if (!isUpdate) {
         setMonthData(buildEmptyMonthDataForYear(year));
         setSelectedPair(0);
       }
-      
+
       // Scroll to top to show success message
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
@@ -400,6 +423,22 @@ export default function TrainingPlanPage({ hideSidebar = false }) {
                 You do not have permission to {existingPlanId ? "update" : "create"} this training plan. Form is view-only.
               </div>
             )}
+            {existingPlanStatus === "Rejected" && existingPlanRejectionReason && (
+              <div className="w-full rounded-xl border border-red-500/40 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-red-300/90 mb-1">
+                  Rejected — reason
+                </p>
+                <p className="whitespace-pre-wrap">{existingPlanRejectionReason}</p>
+                <p className="mt-2 text-xs text-red-300/80">
+                  Update the plan below and resubmit for approval.
+                </p>
+              </div>
+            )}
+            {existingPlanStatus === "Pending Approval" && (
+              <div className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center text-sm text-amber-100">
+                This plan is pending approval. You can still edit and resubmit it.
+              </div>
+            )}
             <fieldset disabled={!canSubmit} className="border-0 p-0 m-0 min-w-0 space-y-6 disabled:opacity-[0.88]">
             <div className="flex w-full min-w-0 flex-row flex-wrap items-center justify-between gap-2 sm:gap-4">
               <a
@@ -458,12 +497,7 @@ export default function TrainingPlanPage({ hideSidebar = false }) {
                   <h2 className="text-lg font-semibold">
                     {MONTH_PAIRS[selectedPair].label} {year}
                   </h2>
-                  <div className="flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/10 px-3 py-1">
-                    <span className="h-2 w-2 rounded-full bg-amber-400"></span>
-                    <span className="text-xs font-semibold text-amber-200 uppercase tracking-wide">
-                      Status: Draft
-                    </span>
-                  </div>
+                  <StatusPill status={existingPlanStatus} />
                 </div>
                 <div className="flex gap-2">
                   {selectedPair > 0 && (
