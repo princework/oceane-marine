@@ -22,6 +22,12 @@ const poacMatrixRowSchema = new mongoose.Schema({
   },
   validPassportExpiry: { type: String, default: "" },
   validPassportFile: fileAttachmentSchema,
+  /** Cron dedupe: 5-day passport expiry reminder sent for this expiry value */
+  lastPassportExpiryReminder5dAt: { type: Date },
+  lastPassportExpiryReminder5dExpiry: { type: String, default: "" },
+  /** Cron dedupe: 1-day-after expiry notice sent for this expiry value */
+  lastPassportExpiredNotice1dAt: { type: Date },
+  lastPassportExpiredNotice1dExpiry: { type: String, default: "" },
   validMastersCOC: {
     type: String,
     enum: ["Yes", "No"],
@@ -29,6 +35,12 @@ const poacMatrixRowSchema = new mongoose.Schema({
   },
   validMastersCOCExpiry: { type: String, default: "" },
   validMastersCOCFile: fileAttachmentSchema,
+  /** Cron dedupe: 5-day Master's COC expiry reminder sent for this expiry value */
+  lastMastersCocExpiryReminder5dAt: { type: Date },
+  lastMastersCocExpiryReminder5dExpiry: { type: String, default: "" },
+  /** Cron dedupe: 1-day-after Master's COC expiry notice sent for this expiry value */
+  lastMastersCocExpiredNotice1dAt: { type: Date },
+  lastMastersCocExpiredNotice1dExpiry: { type: String, default: "" },
   dangerousCargoEndorsementOil: {
     type: String,
     enum: ["Yes", "No"],
@@ -85,6 +97,12 @@ const poacMatrixRowSchema = new mongoose.Schema({
   },
   validMedicalsExpiry: { type: String, default: "" },
   validMedicalsFile: fileAttachmentSchema,
+  /** Cron dedupe: 5-day Valid Medicals expiry reminder sent for this expiry value */
+  lastMedicalsExpiryReminder5dAt: { type: Date },
+  lastMedicalsExpiryReminder5dExpiry: { type: String, default: "" },
+  /** Cron dedupe: 1-day-after Valid Medicals expiry notice sent for this expiry value */
+  lastMedicalsExpiredNotice1dAt: { type: Date },
+  lastMedicalsExpiredNotice1dExpiry: { type: String, default: "" },
   experienceWithOceane: {
     type: String,
     required: true,
