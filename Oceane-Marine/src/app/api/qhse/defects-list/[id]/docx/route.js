@@ -109,7 +109,13 @@ export async function GET(req, { params }) {
       },
       rows: [
         detailRow("Serial:", defect.serialNumber),
-        detailRow("Equipment Defect:", defect.equipmentDefect),
+        detailRow(
+          "Equipment:",
+          [defect.equipmentCode, defect.equipmentName, defect.equipmentSerialCode]
+            .filter(Boolean)
+            .join(" - ")
+        ),
+        detailRow("Defect Description:", defect.equipmentDefect),
         detailRow("Base:", defect.base),
         detailRow("Action Required:", defect.actionRequired),
         detailRow("Target Date:", formatDate(defect.targetDate)),

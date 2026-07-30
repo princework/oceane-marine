@@ -6,6 +6,7 @@ import "@/lib/mongodb/models/Location";
 import "@/lib/mongodb/models/MooringMaster";
 import "@/lib/mongodb/models/CargoType";
 import "@/lib/mongodb/models/pms/Equipment";
+import { hydrateEquipmentUsage } from "@/lib/pms/hydrateEquipmentUsage";
 
 export async function GET(req, { params }) {
   await connectDB();
@@ -25,9 +26,13 @@ export async function GET(req, { params }) {
       );
     }
 
+    // Accessory entries come back as bare ObjectIds — `equipments.equipment`
+    // only refs the Equipment collection.
+    const hydrated = await hydrateEquipmentUsage(operation);
+
     return NextResponse.json({
       success: true,
-      data: operation,
+      data: hydrated,
     });
   } catch (error) {
     console.error("Error fetching operation:", error);

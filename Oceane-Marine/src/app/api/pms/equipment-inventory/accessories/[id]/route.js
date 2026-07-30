@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import path from "path";
 import fs from "fs/promises";
 import Accessories from "@/lib/mongodb/models/pms/Accessories.js";
+import StsOperation from "@/lib/mongodb/models/sts-documentation/StsOperation";
 import { connectDB } from "@/lib/config/connection.js";
 import { assertPmsPermission } from "@/lib/auth/pmsGuard";
 import { NOTIFICATION_MODULES, notifyDelete, notifyEdit } from "@/lib/notifications/moduleNotify";
@@ -325,6 +326,22 @@ export async function DELETE(_req, { params }) {
     const existing = await Accessories.findById(id);
     if (!existing || existing.isDeleted) {
       return NextResponse.json({ message: "Accessory not found" }, { status: 404 });
+    }
+
+    // Accessories became selectable on STS operations, so they need the same
+    // in-use guard primary equipment already has — otherwise an accessory can be
+    // deleted out from under a live operation.
+    const opUse = await StsOperation.findOne({ "equipments.equipment": id })
+      .select("_id")
+      .lean();
+    if (opUse) {
+      return NextResponse.json(
+        {
+          message:
+            "Cannot delete: this accessory is referenced on STS operations. Remove it from operations first.",
+        },
+        { status: 409 }
+      );
     }
 
     await Accessories.findByIdAndDelete(id);

@@ -12,12 +12,42 @@ const EquipmentDefectSchema = new mongoose.Schema(
     /** Year-wise serial: YYYY-NNN (e.g. 2026-001); independent from formCode */
     serialNumber: { type: String },
 
+    /** Free-text description of the fault */
     equipmentDefect: {
       type: String,
       required: true,
       trim: true,
     },
 
+    /**
+     * PMS equipment this defect is raised against.
+     *
+     * `equipmentSource` names the collection `equipmentId` points at — primary
+     * equipment and accessories live in separate collections, so a single
+     * Mongoose `ref` can't resolve both.
+     *
+     * The code/serial/name fields are a snapshot taken when the defect was
+     * logged. They're denormalised on purpose: the list search, PDF, DOCX and
+     * archive payload all read plain strings, and a closed defect should keep
+     * the label it was raised against even if the PMS record is later renamed
+     * or deleted. Optional so pre-existing defects stay valid.
+     */
+    equipmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+    },
+
+    equipmentSource: {
+      type: String,
+      enum: ["Equipment", "Accessories"],
+    },
+
+    equipmentCode: { type: String, trim: true, default: "" },
+
+    equipmentSerialCode: { type: String, trim: true, default: "" },
+
+    equipmentName: { type: String, trim: true, default: "" },
+
+    /** Location label — sourced from the PMS Location master */
     base: {
       type: String,
       required: true,

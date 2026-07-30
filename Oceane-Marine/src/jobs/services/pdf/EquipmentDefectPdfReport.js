@@ -26,6 +26,16 @@ function cellText(value) {
 }
 
 /**
+ * PMS equipment snapshot as one line. Reads the stored strings rather than the
+ * live PMS record so a historical defect keeps the label it was raised against.
+ */
+function equipmentLabel(defect) {
+  return [defect.equipmentCode, defect.equipmentName, defect.equipmentSerialCode]
+    .filter(Boolean)
+    .join(" - ");
+}
+
+/**
  * PDF export aligned with defects DOCX: header meta + record details table.
  *
  * @param {object} defect – lean EquipmentDefect document
@@ -67,7 +77,8 @@ export async function generateEquipmentDefectPdf(defect) {
 
   const body = [
     ["Serial", cellText(defect.serialNumber)],
-    ["Equipment Defect", cellText(defect.equipmentDefect)],
+    ["Equipment", cellText(equipmentLabel(defect))],
+    ["Defect Description", cellText(defect.equipmentDefect)],
     ["Base", cellText(defect.base)],
     ["Action Required", cellText(defect.actionRequired)],
     ["Target Date", cellText(formatDate(defect.targetDate))],
