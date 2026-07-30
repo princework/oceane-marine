@@ -4,15 +4,33 @@ import EquipmentDefect from "@/lib/mongodb/models/qhse-defect/EquipmentDefect";
 import { getNextYearwiseSerial } from "@/lib/mongodb/models/YearwiseSerialCounter";
 import { getQhseFormCode } from "@/lib/constants/qhse-form-codes";
 
+/** Collections a PMS `equipmentId` may point at (see EquipmentDefect schema) */
+const VALID_EQUIPMENT_SOURCES = ["Equipment", "Accessories"];
+
 export async function POST(req) {
   await connectDB();
 
   try {
-    const { equipmentDefect, base, actionRequired, targetDate } =
-      await req.json();
+    const {
+      equipmentDefect,
+      base,
+      actionRequired,
+      targetDate,
+      equipmentId,
+      equipmentSource,
+      equipmentCode,
+      equipmentSerialCode,
+      equipmentName,
+    } = await req.json();
     if (!equipmentDefect || !base || !actionRequired || !targetDate) {
       return NextResponse.json(
         { error: "All fields are required" },
+        { status: 400 }
+      );
+    }
+    if (equipmentSource && !VALID_EQUIPMENT_SOURCES.includes(equipmentSource)) {
+      return NextResponse.json(
+        { error: "Invalid equipment source" },
         { status: 400 }
       );
     }
@@ -30,6 +48,11 @@ export async function POST(req) {
       base,
       actionRequired,
       targetDate,
+      equipmentId: equipmentId || undefined,
+      equipmentSource: equipmentSource || undefined,
+      equipmentCode: equipmentCode || "",
+      equipmentSerialCode: equipmentSerialCode || "",
+      equipmentName: equipmentName || "",
       formCode,
       serialNumber,
       status: "Open",

@@ -1,9 +1,15 @@
 "use client";
 
 import { useQhseSidebar } from "../../../QhseSidebarContext";
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useQhseRole } from "@/hooks/useQhseRole";
+import {
+  BaseSelect,
+  EquipmentSelect,
+  buildEquipmentSnapshot,
+  useDefectEquipmentOptions,
+} from "../../DefectEquipmentFields";
 
 // Limit per-file size to keep the upload responsive. Matches the inline
 // guidance shown beneath the picker.
@@ -25,33 +31,55 @@ export default function DefectPlanPage() {
   const { contentClassName } = useQhseSidebar();
   const { canCreate, canEdit, canDelete, canApprove, canDownload, isQhseAdmin } = useQhseRole();
   const canSubmit = canCreate;
-  const [form, setForm] = useState({
+  const EMPTY_FORM = {
+    equipmentKey: "",
     equipmentDefect: "",
     base: "",
     actionRequired: "",
     targetDate: "",
-  });
+  };
+
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
-  const [locations, setLocations] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [baseAutoFilled, setBaseAutoFilled] = useState(false);
   const fileInputRef = useRef(null);
 
-  useEffect(() => {
-    fetch("/api/master/locations/list")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.locations && Array.isArray(data.locations)) {
-          setLocations(data.locations);
-        }
-      })
-      .catch(() => {});
-  }, []);
+  const {
+    equipment,
+    accessories,
+    locations,
+    optionsByKey,
+    loading: optionsLoading,
+    loadError: optionsError,
+  } = useDefectEquipmentOptions();
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  /** Selecting equipment pulls its PMS location across; the user can still override. */
+  const handleEquipmentChange = (equipmentKey) => {
+    const option = optionsByKey.get(equipmentKey);
+    setForm((prev) => ({
+      ...prev,
+      equipmentKey,
+      base: option?.locationName ? option.locationName : prev.base,
+    }));
+    setBaseAutoFilled(Boolean(option?.locationName));
+  };
+
+  const handleBaseChange = (value) => {
+    setBaseAutoFilled(false);
+    handleChange("base", value);
+  };
+
+  const resetForm = () => {
+    setForm(EMPTY_FORM);
+    setBaseAutoFilled(false);
   };
 
   const handleFilePick = (event) => {
@@ -100,10 +128,17 @@ export default function DefectPlanPage() {
     setError(null);
 
     try {
+      const selectedOption = optionsByKey.get(form.equipmentKey);
       const res = await fetch("/api/qhse/defects-list/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...buildEquipmentSnapshot(selectedOption),
+          equipmentDefect: form.equipmentDefect,
+          base: form.base,
+          actionRequired: form.actionRequired,
+          targetDate: form.targetDate,
+        }),
       });
 
       const data = await res.json();
@@ -131,12 +166,7 @@ export default function DefectPlanPage() {
       setSelectedFiles([]);
       if (fileInputRef.current) fileInputRef.current.value = "";
 
-      setForm({
-        equipmentDefect: "",
-        base: "",
-        actionRequired: "",
-        targetDate: "",
-      });
+      resetForm();
 
       // Scroll to top to show success message
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -210,13 +240,29 @@ export default function DefectPlanPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Equipment Defect */}
+              {optionsError && (
+                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                  {optionsError}
+                </div>
+              )}
+
+              {/* Equipment — from PMS inventory */}
+              <EquipmentSelect
+                value={form.equipmentKey}
+                onChange={handleEquipmentChange}
+                equipment={equipment}
+                accessories={accessories}
+                loading={optionsLoading}
+                disabled={!canSubmit}
+              />
+
+              {/* Defect description */}
               <div>
                 <label
                   htmlFor="equipmentDefect"
                   className="block text-xs font-semibold uppercase tracking-[0.22em] text-slate-100 mb-1.5"
                 >
-                  Equipment Defect
+                  Defect Description
                 </label>
                 <textarea
                   id="equipmentDefect"
@@ -226,35 +272,21 @@ export default function DefectPlanPage() {
                   onChange={(e) =>
                     handleChange("equipmentDefect", e.target.value)
                   }
-                  placeholder="Describe the equipment defect"
+                  placeholder="Describe what is wrong with the equipment"
                   required
                 />
               </div>
 
               {/* Base + Target Date */}
               <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="base"
-                    className="block text-xs font-semibold uppercase tracking-[0.22em] text-slate-100 mb-1.5"
-                  >
-                    Base
-                  </label>
-                  <select
-                    id="base"
-                    className="w-full rounded-xl bg-slate-900/40 border border-white/15 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-400/60"
-                    value={form.base}
-                    onChange={(e) => handleChange("base", e.target.value)}
-                    required
-                  >
-                    <option value="">Select base / location</option>
-                    {locations.map((loc) => (
-                      <option key={loc._id} value={loc.name}>
-                        {loc.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <BaseSelect
+                  value={form.base}
+                  onChange={handleBaseChange}
+                  locations={locations}
+                  loading={optionsLoading}
+                  disabled={!canSubmit}
+                  autoFilled={baseAutoFilled}
+                />
 
                 <div>
                   <label
@@ -403,14 +435,7 @@ export default function DefectPlanPage() {
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    setForm({
-                      equipmentDefect: "",
-                      base: "",
-                      actionRequired: "",
-                      targetDate: "",
-                    })
-                  }
+                  onClick={resetForm}
                   className="rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-semibold text-white/80 hover:bg-white/10 transition"
                   disabled={submitting}
                 >

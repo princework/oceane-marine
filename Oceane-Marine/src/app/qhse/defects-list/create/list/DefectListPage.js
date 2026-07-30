@@ -293,6 +293,9 @@ export default function DefectListPage() {
         (d.serialNumber || "").toLowerCase().includes(s) ||
         (d.formCode || "").toLowerCase().includes(s) ||
         (d.equipmentDefect || "").toLowerCase().includes(s) ||
+        (d.equipmentCode || "").toLowerCase().includes(s) ||
+        (d.equipmentSerialCode || "").toLowerCase().includes(s) ||
+        (d.equipmentName || "").toLowerCase().includes(s) ||
         (d.base || "").toLowerCase().includes(s)
     );
   }, [defects, searchTerm]);
@@ -384,7 +387,7 @@ export default function DefectListPage() {
         </header>
 
         <QhseListPageContainer
-          searchPlaceholder="Search by serial, form code, defect, base..."
+          searchPlaceholder="Search by serial, form code, equipment, defect, base..."
           searchValue={searchTerm}
           onSearchChange={setSearchTerm}
           filterChildren={
@@ -451,7 +454,8 @@ export default function DefectListPage() {
                     <tr className="text-left text-slate-200 border-b border-white/10">
                       <th className="py-2 pr-4">Form Code</th>
                       <th className="hidden py-2 pr-4 md:table-cell">Serial</th>
-                      <th className="py-2 pr-4">Equipment Defect</th>
+                      <th className="py-2 pr-4">Equipment</th>
+                      <th className="py-2 pr-4">Defect</th>
                       <th className="py-2 pr-4">Base</th>
                       <th className="py-2 pr-4">Target Date</th>
                       <th className="py-2 pr-4">Status</th>
@@ -471,6 +475,28 @@ export default function DefectListPage() {
                         </td>
                         <td className="hidden py-2 pr-4 font-mono text-slate-200 md:table-cell">
                           {defect.serialNumber || "—"}
+                        </td>
+                        <td className="py-2 pr-4 max-w-[16rem]">
+                          {defect.equipmentName || defect.equipmentCode ? (
+                            <>
+                              <p className="truncate text-slate-100">
+                                {defect.equipmentName || defect.equipmentCode}
+                              </p>
+                              {(defect.equipmentCode ||
+                                defect.equipmentSerialCode) && (
+                                <p className="truncate font-mono text-[10px] text-slate-400">
+                                  {[
+                                    defect.equipmentCode,
+                                    defect.equipmentSerialCode,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </p>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-slate-500">—</span>
+                          )}
                         </td>
                         <td className="py-2 pr-4 max-w-xs">
                           <p className="line-clamp-2">
@@ -587,7 +613,23 @@ export default function DefectListPage() {
                 </span>
               </div>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Equipment defect</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Equipment</p>
+                <p className="mt-1 text-slate-100">
+                  {viewDefect.equipmentName || viewDefect.equipmentCode || "—"}
+                </p>
+                {(viewDefect.equipmentCode || viewDefect.equipmentSerialCode) && (
+                  <p className="font-mono text-[11px] text-slate-400">
+                    {[viewDefect.equipmentCode, viewDefect.equipmentSerialCode]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    {viewDefect.equipmentSource === "Accessories"
+                      ? " · Accessory"
+                      : ""}
+                  </p>
+                )}
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Defect description</p>
                 <p className="mt-1 whitespace-pre-wrap text-slate-100">{viewDefect.equipmentDefect || "—"}</p>
               </div>
               <div>

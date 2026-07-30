@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import StsOperation from "@/lib/mongodb/models/sts-documentation/StsOperation";
-import crypto from "crypto";
-import fs from "fs/promises";
-import path from "path";
+import { saveUploadedFile, subfolderForField } from "@/lib/utils/sts-file-storage";
 import { notifyOperationsEdit, notifyOperationsDelete } from "@/lib/notifications/operationsNotified";
+
+/** Document sources the operator may add or remove from the general attachments list. */
+const OPERATOR_MANAGED_DOC_SOURCES = new Set(["MANUAL_UPLOAD", "EMAIL_IMPORT"]);
 
 /* =====================
    FILE UPLOAD FIELDS (CHS/MS vessel documents)
@@ -50,29 +51,6 @@ const FILE_URL_FIELDS = [
   "restHoursCKL",
 ];
 
-async function saveUploadedFile(file, subfolder) {
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
-
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-
-  const uploadDir = path.join(
-    process.cwd(),
-    `public/uploads/sts-operations/${subfolder}/${y}/${m}/${d}`
-  );
-  await fs.mkdir(uploadDir, { recursive: true });
-
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const fileName = `${Date.now()}-${crypto.randomUUID()}-${safeName}`;
-  const filePath = path.join(uploadDir, fileName);
-
-  await fs.writeFile(filePath, buffer);
-  return `/uploads/sts-operations/${subfolder}/${y}/${m}/${d}/${fileName}`;
-}
-
 export async function PUT(req, { params }) {
   await connectDB();
   const { id } = await params;
@@ -111,10 +89,7 @@ export async function PUT(req, { params }) {
     for (const field of FILE_UPLOAD_FIELDS) {
       const file = formData.get(field);
       if (file && typeof file !== "string" && file.name && file.size > 0) {
-        let subfolder = "chs";
-        if (field.startsWith("ms")) subfolder = "ms";
-        else if (field === "mooringPlan") subfolder = "mooring-plan";
-        uploadedFiles[field] = await saveUploadedFile(file, subfolder);
+        uploadedFiles[field] = await saveUploadedFile(file, subfolderForField(field));
       } else if (body[`${field}_existing`] && body[`${field}_existing`].trim() !== "") {
         uploadedFiles[field] = body[`${field}_existing`].trim();
       } else if (existing[field]) {
@@ -188,9 +163,11 @@ export async function PUT(req, { params }) {
       ? existing.documents.map((d) => ({ ...d }))
       : [];
 
-    // Apply keep/remove + replacement deletions only to MANUAL_UPLOAD entries.
+    /* Apply keep/remove + replacement deletions only to operator-managed entries.
+       System-generated and checklist documents are protected; email-imported
+       attachments are removable, same as manual uploads. */
     const filteredPrior = priorDocuments.filter((d) => {
-      if (d?.source !== "MANUAL_UPLOAD") return true;
+      if (!OPERATOR_MANAGED_DOC_SOURCES.has(d?.source)) return true;
       if (replacedMap.has(d.filePath)) return false; // replaced → drop old version
       if (keepEnabled) return keepPaths.has(d.filePath);
       return true;

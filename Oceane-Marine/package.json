@@ -10,12 +10,18 @@
     "start": "next start",
     "worker": "node src/workers/worker.js",
     "lint": "eslint",
+    "test": "node --test \"src/**/*.test.js\"",
     "test:cid-email": "node scripts/test-cid-expiry-email.mjs",
+    "test:poac-passport-email": "node scripts/test-poac-passport-expiry-email.mjs",
+    "test:poac-coc-email": "node scripts/test-poac-masters-coc-expiry-email.mjs",
+    "test:poac-medicals-email": "node scripts/test-poac-medicals-expiry-email.mjs",
     "test:sts-doc-email": "node scripts/test-sts-documentation-email.mjs",
     "test:pms-testing-email": "node scripts/test-pms-testing-email.mjs",
     "test:email": "node scripts/send-test-email.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.115.0",
+    "@googleapis/gmail": "^17.0.0",
     "agenda": "^5.0.0",
     "bcryptjs": "^3.0.3",
     "chart.js": "^4.5.1",

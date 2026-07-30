@@ -105,7 +105,14 @@ export function buildDefectClosedTeamEmail({ defectLabel, reviewUrl }) {
 
 export function buildDefectClosedEmailDefectLabel(doc) {
   const serial = doc.serialNumber?.trim();
-  const title = doc.equipmentDefect?.trim() || "—";
+  // Name the PMS unit when it's linked — "2026-004 — EQ-014 Hydraulic Winch:
+  // brake pad worn" tells the reader what was fixed without opening the record.
+  const equipment = [doc.equipmentCode, doc.equipmentName]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(" ");
+  const description = doc.equipmentDefect?.trim() || "—";
+  const title = equipment ? `${equipment}: ${description}` : description;
   if (serial) return `${serial} — ${title}`;
   return title;
 }
