@@ -5,6 +5,7 @@ import TrainingRecord from "@/lib/mongodb/models/qhse-training/TrainingRecord";
 import { assertQhsePermission } from "@/lib/auth/qhseGuard";
 import { parseTrainingPlanFormData } from "@/lib/qhse/trainingPlanForm";
 import { notifyEdit, notifyDelete } from "@/lib/notifications/moduleNotify";
+import { sendTrainingPlanApprovalRequestNotification } from "@/lib/services/email/trainingPlanApprovalNotification";
 
 export async function GET(req, { params } ) {
   try {
@@ -49,7 +50,13 @@ export async function PUT(req, { params }) {
     const { planItems, monthPairFiles } = await parseTrainingPlanFormData(formData);
 
     plan.planItems = planItems;
-    plan.status = "Approved";
+    plan.status = "Pending Approval";
+    plan.rejectionReason = "";
+    plan.approvedBy = null;
+    plan.approvedAt = null;
+    plan.rejectedBy = null;
+    plan.rejectedAt = null;
+    plan.submittedBy = guard.user._id;
 
     if (Object.keys(monthPairFiles).length > 0) {
       const merged = plan.monthPairFiles
@@ -64,6 +71,7 @@ export async function PUT(req, { params }) {
 
     await plan.save();
     void notifyEdit("QHSE", "training · plan · update", id);
+    void sendTrainingPlanApprovalRequestNotification(plan);
 
     return NextResponse.json({ success: true, data: plan });
   } catch (error) {

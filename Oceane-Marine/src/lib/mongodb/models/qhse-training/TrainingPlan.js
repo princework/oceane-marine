@@ -80,10 +80,31 @@ const TrainingPlanSchema = new mongoose.Schema(
       type: Date,
     },
 
+    rejectionReason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    rejectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    rejectedAt: {
+      type: Date,
+    },
+
+    /** Editor who created/last resubmitted this plan (used to resume their draft and to know who to notify). */
+    submittedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
     status: {
       type: String,
-      enum: ["Draft", "Approved"],
-      default: "Approved",
+      enum: ["Draft", "Pending Approval", "Approved", "Rejected"],
+      default: "Draft",
       index: true,
     },
   },

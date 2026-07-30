@@ -1,18 +1,37 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import TrainingPlan from "@/lib/mongodb/models/qhse-training/TrainingPlan";
-import { assertQhsePermission } from "@/lib/auth/qhseGuard";
+import { assertQhsePermission, requireQhseSession } from "@/lib/auth/qhseGuard";
 import { parseTrainingPlanFormData } from "@/lib/qhse/trainingPlanForm";
+import { sendTrainingPlanApprovalRequestNotification } from "@/lib/services/email/trainingPlanApprovalNotification";
 
 export async function GET(req) {
   try {
     await connectDB();
     const { searchParams } = new URL(req.url);
     const year = searchParams.get("year");
+    const mine = searchParams.get("mine");
     const includeArchivedParam = searchParams.get("includeArchived");
     const includeArchived =
       includeArchivedParam === "1" || includeArchivedParam === "true";
     const archivedFilter = includeArchived ? {} : { isArchived: { $ne: true } };
+
+    if (year && (mine === "1" || mine === "true")) {
+      const session = await requireQhseSession();
+      if (!session.ok) return session.response;
+
+      const plan = await TrainingPlan.findOne({
+        ...archivedFilter,
+        year: Number.parseInt(year, 10),
+        submittedBy: session.user._id,
+      }).sort({ createdAt: -1 });
+
+      return NextResponse.json({
+        success: true,
+        data: plan || null,
+        message: plan ? "Training plan found" : "No training plan for this year",
+      });
+    }
 
     if (year) {
       const plan = await TrainingPlan.findOne({
@@ -58,7 +77,8 @@ export async function POST(req) {
 
     const planData = {
       planItems,
-      status: "Approved",
+      status: "Pending Approval",
+      submittedBy: guard.user._id,
     };
 
     if (Object.keys(monthPairFiles).length > 0) {
@@ -66,6 +86,8 @@ export async function POST(req) {
     }
 
     const newPlan = await TrainingPlan.create(planData);
+
+    void sendTrainingPlanApprovalRequestNotification(newPlan);
 
     return NextResponse.json({ success: true, data: newPlan }, { status: 201 });
   } catch (error) {

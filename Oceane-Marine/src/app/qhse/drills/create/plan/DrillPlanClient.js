@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Suspense } from "react";
 import Link from "next/link";
 import QhseSidebar from "../../../components/QhseSidebar";
@@ -8,6 +8,7 @@ import SideBarSkeleton from "../../../components/SideBarSkeleton";
 import { useQhseSidebar } from "../../../QhseSidebarContext";
 import { TemplateDownloadLink } from "../../../components/TemplateDownloadLink";
 import { useQhseRole } from "@/hooks/useQhseRole";
+import { readJsonFromResponse } from "@/lib/utils/readJsonFromResponse";
 
 // Generate dynamic years: 2 years back, current year, and 5 years forward
 function getYears() {
@@ -37,6 +38,32 @@ function getQuarterStartDate(year, quarterIndex) {
   return toDateInput(year, month, 1);
 }
 
+// Normalize a stored plannedDate (ISO string/Date) to yyyy-mm-dd, no timezone shifting
+function toDateInputValue(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  const tzOffset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - tzOffset).toISOString().slice(0, 10);
+}
+
+const STATUS_BADGE_STYLES = {
+  Draft: { dot: "bg-slate-400", pill: "border-slate-400/40 bg-slate-500/10 text-slate-200" },
+  "Pending Approval": { dot: "bg-amber-400", pill: "border-amber-400/40 bg-amber-500/10 text-amber-200" },
+  Approved: { dot: "bg-emerald-400", pill: "border-emerald-400/40 bg-emerald-500/10 text-emerald-200" },
+  Rejected: { dot: "bg-red-400", pill: "border-red-400/40 bg-red-500/10 text-red-200" },
+};
+
+function StatusPill({ status }) {
+  const label = status || "Draft";
+  const style = STATUS_BADGE_STYLES[label] || STATUS_BADGE_STYLES.Draft;
+  return (
+    <div className={`flex items-center gap-2 rounded-full border px-3 py-1 ${style.pill}`}>
+      <span className={`h-2 w-2 rounded-full ${style.dot}`}></span>
+      <span className="text-xs font-semibold uppercase tracking-wide">Status: {label}</span>
+    </div>
+  );
+}
+
 export default function DrillsPlanPage({ hideSidebar = false }) {
   const currentYear = new Date().getFullYear();
   const initialYear = currentYear;
@@ -53,10 +80,13 @@ export default function DrillsPlanPage({ hideSidebar = false }) {
     }));
   });
   const [saving, setSaving] = useState(false);
-  const [approving, setApproving] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
   const [savedPlan, setSavedPlan] = useState(null);
+  const [existingPlanId, setExistingPlanId] = useState(null);
+  const [existingPlanStatus, setExistingPlanStatus] = useState(null);
+  const [existingPlanRejectionReason, setExistingPlanRejectionReason] = useState("");
+  const [loadingPlan, setLoadingPlan] = useState(false);
   const [downloadingDocx, setDownloadingDocx] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [quarterFiles, setQuarterFiles] = useState({
@@ -66,14 +96,73 @@ export default function DrillsPlanPage({ hideSidebar = false }) {
     Q4: null,
   });
 
+  useEffect(() => {
+    let active = true;
+    const loadPlanForYear = async () => {
+      setLoadingPlan(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/qhse/drill/plan?year=${year}&mine=1`);
+        const data = await readJsonFromResponse(res);
+        if (!active) return;
+
+        if (res.ok && data.success && data.data) {
+          const plan = data.data;
+          setSavedPlan(plan);
+          setExistingPlanId(plan._id);
+          setExistingPlanStatus(plan.status || null);
+          setExistingPlanRejectionReason(plan.rejectionReason || "");
+          const next = QUARTERS.map((_, index) => ({
+            plannedDate: getQuarterStartDate(year, index),
+            topic: "",
+            instructor: "",
+            description: "",
+          }));
+          for (const item of plan.planItems || []) {
+            const idx = QUARTERS.indexOf(item.quarter);
+            if (idx >= 0) {
+              next[idx] = {
+                plannedDate: toDateInputValue(item.plannedDate) || getQuarterStartDate(year, idx),
+                topic: item.topic || "",
+                instructor: item.instructor || "",
+                description: item.description || "",
+              };
+            }
+          }
+          setQuarterData(next);
+        } else {
+          setSavedPlan(null);
+          setExistingPlanId(null);
+          setExistingPlanStatus(null);
+          setExistingPlanRejectionReason("");
+          setQuarterData(
+            QUARTERS.map((_, index) => ({
+              plannedDate: getQuarterStartDate(year, index),
+              topic: "",
+              instructor: "",
+              description: "",
+            }))
+          );
+        }
+      } catch {
+        if (active) {
+          setSavedPlan(null);
+          setExistingPlanId(null);
+          setExistingPlanStatus(null);
+          setExistingPlanRejectionReason("");
+        }
+      } finally {
+        if (active) setLoadingPlan(false);
+      }
+    };
+    loadPlanForYear();
+    return () => {
+      active = false;
+    };
+  }, [year]);
+
   const handleYearChange = (newYear) => {
     setYear(newYear);
-    setQuarterData((prev) =>
-      prev.map((data, index) => ({
-        ...data,
-        plannedDate: getQuarterStartDate(newYear, index),
-      }))
-    );
     setMessage(null);
     setError(null);
   };
@@ -146,20 +235,35 @@ export default function DrillsPlanPage({ hideSidebar = false }) {
         }
       });
 
-      const res = await fetch("/api/qhse/drill/plan", {
-        method: "POST",
-        body: formData,
-      });
+      const isUpdate = Boolean(existingPlanId);
+      const res = await fetch(
+        isUpdate ? `/api/qhse/drill/plan/${existingPlanId}` : "/api/qhse/drill/plan",
+        {
+          method: isUpdate ? "PUT" : "POST",
+          body: formData,
+        }
+      );
 
       const data = await res.json();
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to create drill plan");
+        throw new Error(
+          data.error || (isUpdate ? "Failed to update drill plan" : "Failed to create drill plan")
+        );
       }
 
-      setMessage(`Drill plan for ${year} saved successfully!`);
+      const plan = data.data;
+      setSavedPlan(plan);
+      setExistingPlanId(plan?._id || null);
+      setExistingPlanStatus(plan?.status || null);
+      setExistingPlanRejectionReason(plan?.rejectionReason || "");
+      setMessage(
+        isUpdate
+          ? `Drill plan for ${year} resubmitted for approval`
+          : `Drill plan for ${year} submitted for approval`
+      );
       setError(null);
-      setSavedPlan(data.data);
+      setQuarterFiles({ Q1: null, Q2: null, Q3: null, Q4: null });
 
       // Scroll to top to show success message
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -168,34 +272,6 @@ export default function DrillsPlanPage({ hideSidebar = false }) {
       setMessage(null);
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleApprove = async () => {
-    if (!canApprove) return;
-    if (!savedPlan?._id) {
-      setError("Save the plan first, then approve.");
-      return;
-    }
-    setApproving(true);
-    setError(null);
-    setMessage(null);
-    try {
-      const res = await fetch(`/api/qhse/drill/plan/${savedPlan._id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ year }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to approve drill plan");
-      }
-      setSavedPlan(data.data);
-      setMessage("Drill plan approved.");
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setApproving(false);
     }
   };
 
@@ -250,7 +326,7 @@ export default function DrillsPlanPage({ hideSidebar = false }) {
     currentQuarterData.description.trim();
 
   const { canCreate, canEdit, canDelete, canApprove, canDownload, isQhseAdmin } = useQhseRole();
-  const canSubmit = canCreate;
+  const canSubmit = existingPlanId ? canEdit : canCreate;
 
   const content = (
     <div className="w-full max-w-[95%] mx-auto pl-3 sm:pl-4 pr-3 sm:pr-4 py-6 sm:py-6 sm:py-10 space-y-3 sm:space-y-4 sm:space-y-6">
@@ -301,7 +377,23 @@ export default function DrillsPlanPage({ hideSidebar = false }) {
         >
           {!canSubmit && (
             <div className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center text-sm text-amber-100">
-              You do not have permission to create records. Form is view-only.
+              You do not have permission to {existingPlanId ? "update" : "create"} this drill plan. Form is view-only.
+            </div>
+          )}
+          {existingPlanStatus === "Rejected" && existingPlanRejectionReason && (
+            <div className="w-full rounded-xl border border-red-500/40 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-red-300/90 mb-1">
+                Rejected — reason
+              </p>
+              <p className="whitespace-pre-wrap">{existingPlanRejectionReason}</p>
+              <p className="mt-2 text-xs text-red-300/80">
+                Update the plan below and resubmit for approval.
+              </p>
+            </div>
+          )}
+          {existingPlanStatus === "Pending Approval" && (
+            <div className="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center text-sm text-amber-100">
+              This plan is pending approval. You can still edit and resubmit it.
             </div>
           )}
           <fieldset disabled={!canSubmit} className="border-0 p-0 m-0 min-w-0 space-y-6 disabled:opacity-[0.88]">
@@ -354,12 +446,7 @@ export default function DrillsPlanPage({ hideSidebar = false }) {
                 <h2 className="text-lg font-semibold">
                   {QUARTERS[selectedQuarter]} {year}
                 </h2>
-                <div className="flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-500/10 px-3 py-1">
-                  <span className="h-2 w-2 rounded-full bg-amber-400"></span>
-                  <span className="text-xs font-semibold text-amber-200 uppercase tracking-wide">
-                    Status: Draft
-                  </span>
-                </div>
+                <StatusPill status={existingPlanStatus} />
               </div>
               <div className="flex gap-2">
                 {selectedQuarter > 0 && (
@@ -539,15 +626,6 @@ export default function DrillsPlanPage({ hideSidebar = false }) {
                 >
                   {downloadingPdf ? "…" : "PDF"}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleApprove}
-                  disabled={!canApprove || approving}
-                  className="flex items-center gap-2 px-4 py-3 rounded-xl bg-emerald-600 text-sm font-semibold uppercase tracking-[0.2em] shadow-lg shadow-emerald-500/40 hover:bg-emerald-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <span>✔</span>
-                  <span>{approving ? "Approving..." : "Approve Plan"}</span>
-                </button>
               </>
             )}
             <button
@@ -556,7 +634,13 @@ export default function DrillsPlanPage({ hideSidebar = false }) {
               className="flex items-center gap-2 px-6 py-3 rounded-xl bg-orange-500 text-sm font-semibold uppercase tracking-[0.2em] shadow-lg shadow-orange-500/40 hover:bg-orange-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <span>✉️✓→</span>
-              <span>{saving ? "Saving..." : "Send for Approval"}</span>
+              <span>
+                {saving
+                  ? "Saving..."
+                  : existingPlanId
+                    ? "Resubmit for Approval"
+                    : "Send for Approval"}
+              </span>
             </button>
           </div>
           </fieldset>
