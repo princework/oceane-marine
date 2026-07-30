@@ -63,6 +63,7 @@ const documentSchema = new mongoose.Schema(
         "MANUAL_UPLOAD",      // Admin Upload
         "AUTO_LOCATION",      // Auto from Location Master
         "CHECKLIST_HARDCOPY", // Paper form scanned / uploaded from STS Checklist dashboard
+        "EMAIL_IMPORT",       // Attachment pulled from a client nomination email
       ],
       default: "SYSTEM_GENERATED"
     },
@@ -315,7 +316,36 @@ const stsOperationSchema = new mongoose.Schema(
     stsDocFollowUpInProgress30dSentAt: Date,
 
     /** Sent once when COMPLETED ≥ 7 days and required documents were still missing */
-    stsDocFollowUpCompletedMissingSentAt: Date
+    stsDocFollowUpCompletedMissingSentAt: Date,
+
+    /* ================= EMAIL IMPORT PROVENANCE ================= */
+
+    /**
+     * Present only on operations created by "Import from Email".
+     * Absent on hand-created records, so `Boolean(op.emailImport)` distinguishes the two.
+     */
+    emailImport: {
+      /** Gmail message id — lets a re-import of the same email be detected. */
+      messageId: { type: String, trim: true, index: true },
+
+      /** Sender as it appeared on the email, e.g. "Chartering Desk <ops@client.com>". */
+      from: { type: String, trim: true },
+
+      subject: { type: String, trim: true },
+
+      importedAt: Date,
+
+      importedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+      },
+
+      /** How the fields were read: with the model, or by deterministic matching. */
+      extraction: {
+        type: String,
+        enum: ["model", "deterministic", "deterministic-fallback"]
+      }
+    }
 
   },
   {

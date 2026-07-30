@@ -4,10 +4,8 @@ import { connectDB } from "@/lib/config/connection";
 import StsOperation from "@/lib/mongodb/models/sts-documentation/StsOperation";
 import Equipment from "@/lib/mongodb/models/pms/Equipment";
 import { buildStsCreateDocument } from "@/lib/operations/stsCreatePayload";
+import { saveUploadedFile, subfolderForField } from "@/lib/utils/sts-file-storage";
 import mongoose from "mongoose";
-import crypto from "crypto";
-import fs from "fs/promises";
-import path from "path";
 
 /* =====================
    FILE UPLOAD FIELDS (CHS/MS vessel documents)
@@ -53,29 +51,6 @@ const FILE_URL_FIELDS = [
   "incidentReporting",
 ];
 
-async function saveUploadedFile(file, subfolder) {
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
-
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-
-  const uploadDir = path.join(
-    process.cwd(),
-    `public/uploads/sts-operations/${subfolder}/${y}/${m}/${d}`
-  );
-  await fs.mkdir(uploadDir, { recursive: true });
-
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const fileName = `${Date.now()}-${crypto.randomUUID()}-${safeName}`;
-  const filePath = path.join(uploadDir, fileName);
-
-  await fs.writeFile(filePath, buffer);
-  return `/uploads/sts-operations/${subfolder}/${y}/${m}/${d}/${fileName}`;
-}
-
 export async function POST(req) {
   await connectDB();
 
@@ -105,10 +80,7 @@ export async function POST(req) {
     for (const field of FILE_UPLOAD_FIELDS) {
       const file = formData.get(field);
       if (file && typeof file !== "string" && file.name && file.size > 0) {
-        let subfolder = "chs";
-        if (field.startsWith("ms")) subfolder = "ms";
-        else if (field === "mooringPlan") subfolder = "mooring-plan";
-        uploadedFiles[field] = await saveUploadedFile(file, subfolder);
+        uploadedFiles[field] = await saveUploadedFile(file, subfolderForField(field));
       }
     }
 
