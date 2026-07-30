@@ -4,10 +4,14 @@ import { connectDB } from "@/lib/config/connection";
 import StsOperation from "@/lib/mongodb/models/sts-documentation/StsOperation";
 import Equipment from "@/lib/mongodb/models/pms/Equipment";
 import { buildStsCreateDocument } from "@/lib/operations/stsCreatePayload";
+import {
+  EQUIPMENT_SOURCES,
+  getOpenDefectCounts,
+  optionKey,
+  resolveEquipmentIds,
+} from "@/lib/pms/equipmentOptions";
+import { saveUploadedFile, subfolderForField } from "@/lib/utils/sts-file-storage";
 import mongoose from "mongoose";
-import crypto from "crypto";
-import fs from "fs/promises";
-import path from "path";
 
 /* =====================
    FILE UPLOAD FIELDS (CHS/MS vessel documents)
@@ -53,29 +57,6 @@ const FILE_URL_FIELDS = [
   "incidentReporting",
 ];
 
-async function saveUploadedFile(file, subfolder) {
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
-
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-
-  const uploadDir = path.join(
-    process.cwd(),
-    `public/uploads/sts-operations/${subfolder}/${y}/${m}/${d}`
-  );
-  await fs.mkdir(uploadDir, { recursive: true });
-
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const fileName = `${Date.now()}-${crypto.randomUUID()}-${safeName}`;
-  const filePath = path.join(uploadDir, fileName);
-
-  await fs.writeFile(filePath, buffer);
-  return `/uploads/sts-operations/${subfolder}/${y}/${m}/${d}/${fileName}`;
-}
-
 export async function POST(req) {
   await connectDB();
 
@@ -105,10 +86,7 @@ export async function POST(req) {
     for (const field of FILE_UPLOAD_FIELDS) {
       const file = formData.get(field);
       if (file && typeof file !== "string" && file.name && file.size > 0) {
-        let subfolder = "chs";
-        if (field.startsWith("ms")) subfolder = "ms";
-        else if (field === "mooringPlan") subfolder = "mooring-plan";
-        uploadedFiles[field] = await saveUploadedFile(file, subfolder);
+        uploadedFiles[field] = await saveUploadedFile(file, subfolderForField(field));
       }
     }
 
@@ -154,16 +132,62 @@ export async function POST(req) {
       .filter((v) => typeof v === "string" && v.trim() !== "")
       .map((v) => v.trim());
 
-    let equipments = [];
+    // Ids arrive without a source, so both PMS collections are checked.
+    let equipmentUnits = [];
     if (equipmentIds.length > 0) {
-      equipments = await Equipment.find({
-        _id: { $in: equipmentIds },
-        isInUse: false,
-      });
+      const { resolved, missing } = await resolveEquipmentIds(equipmentIds);
 
-      if (equipments.length !== equipmentIds.length) {
+      if (missing.length > 0) {
         return NextResponse.json(
-          { error: "One or more selected equipments are not available" },
+          { error: "One or more selected equipments no longer exist in PMS" },
+          { status: 400 }
+        );
+      }
+
+      equipmentUnits = equipmentIds.map((id) => resolved.get(id));
+
+      // Primary equipment committed to another operation stays unavailable —
+      // pre-existing rule, kept. Accessories have no equivalent in-use flag.
+      const inUse = equipmentUnits.filter((unit) => unit.isInUse);
+      if (inUse.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Already in use by another operation: ${inUse
+              .map((unit) => unit.label || unit.name)
+              .join(", ")}`,
+          },
+          { status: 400 }
+        );
+      }
+
+      // Mirrors the disabled options in the form. Without this the block is
+      // cosmetic — a stale page or a direct POST would slip straight past it.
+      const retired = equipmentUnits.filter(
+        (unit) =>
+          unit.source === EQUIPMENT_SOURCES.PRIMARY && unit.status === "RETIRED"
+      );
+      if (retired.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Retired equipment cannot be used: ${retired
+              .map((unit) => unit.label || unit.name)
+              .join(", ")}`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const defectCounts = await getOpenDefectCounts();
+      const defected = equipmentUnits.filter((unit) =>
+        defectCounts.get(optionKey(unit.source, unit.id))
+      );
+      if (defected.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Equipment with an open defect cannot be used: ${defected
+              .map((unit) => unit.label || unit.name)
+              .join(", ")}`,
+          },
           { status: 400 }
         );
       }
@@ -182,8 +206,10 @@ export async function POST(req) {
     /* =====================
        EQUIPMENT USAGE
     ====================== */
-    const equipmentUsage = equipments.map((eq) => ({
-      equipment: eq._id,
+    const equipmentUsage = equipmentUnits.map((unit) => ({
+      equipment: unit.id,
+      equipmentSource: unit.source,
+      equipmentName: unit.name,
       startTime: operationStartTime,
       status: "IN_USE",
     }));
@@ -220,9 +246,15 @@ export async function POST(req) {
     /* =====================
        LOCK EQUIPMENTS
     ====================== */
-    if (equipmentIds.length > 0) {
+    // Primary equipment only — accessories have no in-use flag, and passing
+    // their ids to the Equipment collection would just match nothing.
+    const primaryEquipmentIds = equipmentUnits
+      .filter((unit) => unit.source === EQUIPMENT_SOURCES.PRIMARY)
+      .map((unit) => unit.id);
+
+    if (primaryEquipmentIds.length > 0) {
       await Equipment.updateMany(
-        { _id: { $in: equipmentIds } },
+        { _id: { $in: primaryEquipmentIds } },
         {
           isInUse: true,
           lastUsedAt: new Date(),

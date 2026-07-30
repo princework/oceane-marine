@@ -17,6 +17,11 @@ import {
 import { downloadFileFromUrl } from "@/lib/utils/sts-file-download";
 import SelectField from "@/app/operations/components/OperationsSelectField";
 import StsDocumentationMultiUpload from "../../StsDocumentationMultiUpload";
+import {
+  EquipmentOptionRow,
+  buildStsEquipmentOptions,
+  groupEquipmentOptions,
+} from "../../stsEquipmentOptions";
 
 const statusTone = {
   INPROGRESS: {
@@ -236,7 +241,8 @@ export default function EditOperationPage() {
             fetch("/api/master/sts-agents/list"),
             fetch("/api/master/locations/list"),
             fetch("/api/master/mooring-master/list"),
-            fetch("/api/pms/equipment-inventory/primary-equipment/list"),
+            // PMS equipment + accessories, tagged with defect / retired state
+            fetch("/api/operations/sts/equipment-options"),
           ]);
 
         const cargoJson = await cargoRes.json();
@@ -251,7 +257,7 @@ export default function EditOperationPage() {
         setStsAgents(agentsJson?.agents || []);
         setLocations(locationJson?.locations || []);
         setMooringMasters(mooringJson?.mooringMasters || []);
-        setEquipmentList(equipmentJson?.equipments || []);
+        setEquipmentList(buildStsEquipmentOptions(equipmentJson));
       } catch (error) {
         console.error("Failed to load masters", error);
       } finally {
@@ -1142,14 +1148,10 @@ export default function EditOperationPage() {
             <SectionTitle title="Equipment & Remarks" />
             <div className="grid gap-6 md:grid-cols-2">
               <MultiSelectDropdown
-                label="Equipment Used (available only)"
+                label="Equipment Used"
                 loading={loadingMasters}
                 name="equipments"
-                options={equipmentList
-                  .filter(
-                    (e) => (e.availabilityStatus || "AVAILABLE") === "AVAILABLE"
-                  )
-                  .map((e) => ({ label: e.equipmentName, value: e._id }))}
+                options={equipmentList}
                 resetKey={formResetKey}
                 initialSelected={operationData?.equipments?.map((eq) => {
                   const eqId = eq.equipment?._id || eq.equipment;
@@ -1870,6 +1872,10 @@ function MultiSelectDropdown({
     );
   };
 
+  // Mixed inventory — group headers keep primary equipment and accessories
+  // readable in one list.
+  const groupedOptions = groupEquipmentOptions(options);
+
   const summaryLabel = (() => {
     if (selected.length) {
       const selectedLabels = selected
@@ -1923,23 +1929,26 @@ function MultiSelectDropdown({
             )}
             {!loading && !options.length && (
               <div className="px-4 py-3 text-sm text-white/60">
-                No available equipment
+                No equipment found in PMS
               </div>
             )}
             {!loading &&
-              options.map((opt) => (
-                <label
-                  key={opt.value}
-                  className="flex items-center gap-3 px-4 py-2 text-sm text-white hover:bg-white/10 cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-white/50 bg-transparent text-orange-400 focus:ring-orange-400"
-                    checked={selected.includes(opt.value)}
-                    onChange={() => toggle(opt.value)}
-                  />
-                  <span>{opt.label}</span>
-                </label>
+              groupedOptions.map(({ group, items }) => (
+                <div key={group}>
+                  {group && (
+                    <p className="sticky top-0 bg-slate-900/95 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-orange-300/80">
+                      {group}
+                    </p>
+                  )}
+                  {items.map((opt) => (
+                    <EquipmentOptionRow
+                      key={opt.value}
+                      option={opt}
+                      checked={selected.includes(opt.value)}
+                      onToggle={() => toggle(opt.value)}
+                    />
+                  ))}
+                </div>
               ))}
           </div>
         )}

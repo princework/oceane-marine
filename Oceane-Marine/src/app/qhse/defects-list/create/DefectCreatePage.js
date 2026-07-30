@@ -8,6 +8,14 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { TemplateDownloadLink } from "../../components/TemplateDownloadLink";
 import { useSearchParams } from "next/navigation";
+import {
+  BaseSelect,
+  EquipmentSelect,
+  buildEquipmentSnapshot,
+  equipmentKeyOf,
+  storedEquipmentLabel,
+  useDefectEquipmentOptions,
+} from "../DefectEquipmentFields";
 
 // Limit per-file size to keep the upload responsive. Matches the inline
 // guidance shown beneath the picker.
@@ -34,6 +42,7 @@ export default function DefectCreatePage() {
   const canSubmit = editId ? canEdit : canCreate;
 
   const [form, setForm] = useState({
+    equipmentKey: "",
     equipmentDefect: "",
     base: "",
     actionRequired: "",
@@ -44,24 +53,24 @@ export default function DefectCreatePage() {
   const [loading, setLoading] = useState(!!editId);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
-  const [locations, setLocations] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
+  /** Label for a saved unit that's no longer in the PMS dropdown */
+  const [storedEquipment, setStoredEquipment] = useState("");
+  const [baseAutoFilled, setBaseAutoFilled] = useState(false);
   const [existingAttachments, setExistingAttachments] = useState([]);
   const [removingAttachmentIdx, setRemovingAttachmentIdx] = useState(null);
   const [displayFormCode, setDisplayFormCode] = useState(null);
   const [displaySerialNumber, setDisplaySerialNumber] = useState(null);
   const fileInputRef = useRef(null);
 
-  useEffect(() => {
-    fetch("/api/master/locations/list")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.locations && Array.isArray(data.locations)) {
-          setLocations(data.locations);
-        }
-      })
-      .catch(() => {});
-  }, []);
+  const {
+    equipment,
+    accessories,
+    locations,
+    optionsByKey,
+    loading: optionsLoading,
+    loadError: optionsError,
+  } = useDefectEquipmentOptions();
 
   useEffect(() => {
     if (!editId) return;
@@ -75,6 +84,7 @@ export default function DefectCreatePage() {
         if (cancelled || !data.success || !data.data) return;
         const d = data.data;
         setForm({
+          equipmentKey: equipmentKeyOf(d.equipmentSource, d.equipmentId),
           equipmentDefect: d.equipmentDefect || "",
           base: d.base || "",
           actionRequired: d.actionRequired || "",
@@ -82,6 +92,7 @@ export default function DefectCreatePage() {
             ? new Date(d.targetDate).toISOString().slice(0, 10)
             : "",
         });
+        setStoredEquipment(storedEquipmentLabel(d));
         setExistingAttachments(d.attachments || []);
         setDisplayFormCode(d.formCode || null);
         setDisplaySerialNumber(d.serialNumber || null);
@@ -93,6 +104,35 @@ export default function DefectCreatePage() {
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  /** Selecting equipment pulls its PMS location across; the user can still override. */
+  const handleEquipmentChange = (equipmentKey) => {
+    const option = optionsByKey.get(equipmentKey);
+    setForm((prev) => ({
+      ...prev,
+      equipmentKey,
+      base: option?.locationName ? option.locationName : prev.base,
+    }));
+    setBaseAutoFilled(Boolean(option?.locationName));
+  };
+
+  const handleBaseChange = (value) => {
+    setBaseAutoFilled(false);
+    handleChange("base", value);
+  };
+
+  const emptyForm = {
+    equipmentKey: "",
+    equipmentDefect: "",
+    base: "",
+    actionRequired: "",
+    targetDate: "",
+  };
+
+  const resetForm = () => {
+    setForm(emptyForm);
+    setBaseAutoFilled(false);
   };
 
   const handleFilePick = (event) => {
@@ -183,14 +223,22 @@ export default function DefectCreatePage() {
         ? `/api/qhse/defects-list/${editId}/update`
         : "/api/qhse/defects-list/create";
       const method = editId ? "PUT" : "POST";
-      const body = editId
-        ? JSON.stringify({
-            equipmentDefect: form.equipmentDefect,
-            base: form.base,
-            actionRequired: form.actionRequired,
-            targetDate: form.targetDate,
-          })
-        : JSON.stringify(form);
+
+      // Snapshot the chosen PMS unit. When editing a defect whose equipment has
+      // left the list, `optionsByKey` has no entry — keep the saved snapshot
+      // rather than blanking the link.
+      const selectedOption = optionsByKey.get(form.equipmentKey);
+      const equipmentFields = selectedOption
+        ? buildEquipmentSnapshot(selectedOption)
+        : null;
+
+      const body = JSON.stringify({
+        ...(equipmentFields || {}),
+        equipmentDefect: form.equipmentDefect,
+        base: form.base,
+        actionRequired: form.actionRequired,
+        targetDate: form.targetDate,
+      });
 
       const res = await fetch(url, {
         method,
@@ -227,12 +275,7 @@ export default function DefectCreatePage() {
       }
 
       if (!editId) {
-        setForm({
-          equipmentDefect: "",
-          base: "",
-          actionRequired: "",
-          targetDate: "",
-        });
+        resetForm();
       }
 
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -338,13 +381,34 @@ export default function DefectCreatePage() {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Equipment Defect */}
+              {optionsError && (
+                <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                  {optionsError}
+                </div>
+              )}
+
+              {/* Equipment — from PMS inventory */}
+              <EquipmentSelect
+                value={form.equipmentKey}
+                onChange={handleEquipmentChange}
+                equipment={equipment}
+                accessories={accessories}
+                loading={optionsLoading}
+                fallbackLabel={
+                  form.equipmentKey && !optionsByKey.get(form.equipmentKey)
+                    ? storedEquipment
+                    : ""
+                }
+                disabled={!canSubmit}
+              />
+
+              {/* Defect description */}
               <div>
                 <label
                   htmlFor="equipmentDefect"
                   className="block text-xs font-semibold uppercase tracking-[0.22em] text-slate-100 mb-1.5"
                 >
-                  Equipment Defect
+                  Defect Description
                 </label>
                 <textarea
                   id="equipmentDefect"
@@ -354,38 +418,21 @@ export default function DefectCreatePage() {
                   onChange={(e) =>
                     handleChange("equipmentDefect", e.target.value)
                   }
-                  placeholder="Describe the equipment defect"
+                  placeholder="Describe what is wrong with the equipment"
                   required
                 />
               </div>
 
               {/* Base + Target Date */}
               <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="base"
-                    className="block text-xs font-semibold uppercase tracking-[0.22em] text-slate-100 mb-1.5"
-                  >
-                    Base
-                  </label>
-                  <select
-                    id="base"
-                    className="w-full rounded-xl bg-slate-900/40 border border-white/15 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-sky-400/60"
-                    value={form.base}
-                    onChange={(e) => handleChange("base", e.target.value)}
-                    required
-                  >
-                    <option value="">Select base / location</option>
-                    {form.base && !locations.some((l) => l.name === form.base) && (
-                      <option value={form.base}>{form.base}</option>
-                    )}
-                    {locations.map((loc) => (
-                      <option key={loc._id} value={loc.name}>
-                        {loc.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <BaseSelect
+                  value={form.base}
+                  onChange={handleBaseChange}
+                  locations={locations}
+                  loading={optionsLoading}
+                  disabled={!canSubmit}
+                  autoFilled={baseAutoFilled}
+                />
 
                 <div>
                   <label
@@ -591,14 +638,7 @@ export default function DefectCreatePage() {
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    setForm({
-                      equipmentDefect: "",
-                      base: "",
-                      actionRequired: "",
-                      targetDate: "",
-                    })
-                  }
+                  onClick={resetForm}
                   className="rounded-full border border-white/20 bg-transparent px-4 py-2 text-xs font-semibold text-white/80 hover:bg-white/10 transition"
                   disabled={submitting}
                 >
