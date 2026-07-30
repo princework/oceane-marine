@@ -18,6 +18,7 @@ const PUBLIC_EXTERNAL_FORM_POST_ROUTES = new Set([
   "/api/qhse/cross-competency/create",
   "/api/qhse/due-diligence/due-diligence-questionnaire/create",
   "/api/qhse/form-checklist/transfer-audit/create",
+  "/api/qhse/form-checklist/transfer-location-quest/submit",
 ]);
 
 /**

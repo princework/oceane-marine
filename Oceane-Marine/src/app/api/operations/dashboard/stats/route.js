@@ -50,6 +50,7 @@ export async function GET(req) {
 
     // 2. Status count
     const statusCount = {
+      DRAFT: 0,
       COMPLETED: 0,
       CANCELED: 0,
       INPROGRESS: 0,

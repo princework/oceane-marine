@@ -54,7 +54,7 @@ const sidebarTabs = [
       {
         key: "transfer-location-quest",
         label: "Transfer Location Questionnaire",
-        href: "/qhse/forms-checklist/transfer-location-quest/form",
+        href: "/qhse/forms-checklist/transfer-location-quest/list",
       },
       {
         key: "new-base-setup-checklist",

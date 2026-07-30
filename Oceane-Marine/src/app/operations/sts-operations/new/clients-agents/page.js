@@ -9,7 +9,7 @@ import {
   getSidebarTabs,
   isFormsSubmoduleSidebarActive,
 } from "@/app/operations/sts-operations/new/sidebarTabs";
-import { ActionDeleteIcon } from "@/app/components/RecordActionIcons";
+import { ActionDeleteIcon, ActionEditIcon } from "@/app/components/RecordActionIcons";
 import { useOperationsClientPagination } from "@/app/operations/hooks/useOperationsClientPagination";
 import OperationsListPaginationFooter from "@/app/operations/components/OperationsListPaginationFooter";
 
@@ -19,10 +19,13 @@ export default function ClientsAgentsMasterPage() {
   const [clients, setClients] = useState([]);
   const [agents, setAgents] = useState([]);
   const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
   const [agentName, setAgentName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [editingClientId, setEditingClientId] = useState(null);
+  const [editingClientEmail, setEditingClientEmail] = useState("");
   const { isSidebarOpen, setIsSidebarOpen } = useOperationsSidebar();
   const [expandedModules, setExpandedModules] = useState(new Set());
   const sidebarRef = useRef(null);
@@ -90,16 +93,48 @@ export default function ClientsAgentsMasterPage() {
       const res = await fetch("/api/master/sts-clients/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: clientName.trim() }),
+        body: JSON.stringify({ name: clientName.trim(), email: clientEmail.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create");
       setClientName("");
+      setClientEmail("");
       await loadClients();
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startEditClientEmail = (row) => {
+    setEditingClientId(row._id);
+    setEditingClientEmail(row.email || "");
+  };
+
+  const cancelEditClientEmail = () => {
+    setEditingClientId(null);
+    setEditingClientEmail("");
+  };
+
+  const saveClientEmail = async (row) => {
+    setError("");
+    try {
+      setActionLoading(true);
+      const res = await fetch(`/api/master/sts-clients/${row._id}/update`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: row.name, email: editingClientEmail.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update");
+      setEditingClientId(null);
+      setEditingClientEmail("");
+      await loadClients();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -382,6 +417,13 @@ export default function ClientsAgentsMasterPage() {
                       placeholder="Client name"
                       className="flex-1 min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 text-sm text-white placeholder:text-white/40 outline-none focus:ring-2 focus:ring-orange-500/50"
                     />
+                    <input
+                      type="email"
+                      value={clientEmail}
+                      onChange={(e) => setClientEmail(e.target.value)}
+                      placeholder="Client email (optional)"
+                      className="flex-1 min-w-0 rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 text-sm text-white placeholder:text-white/40 outline-none focus:ring-2 focus:ring-orange-500/50"
+                    />
                     <button
                       type="submit"
                       disabled={loading}
@@ -390,6 +432,9 @@ export default function ClientsAgentsMasterPage() {
                       {loading ? "…" : "Add"}
                     </button>
                   </form>
+                  <p className="mt-2 text-xs text-white/40 text-center sm:text-left">
+                    Email is used to send the Transfer Location Questionnaire link when a matching operation is Draft.
+                  </p>
                 </div>
                 <div className="flex flex-col rounded-2xl border border-white/10 bg-gradient-to-br from-white/5 to-white/[0.02] shadow-2xl">
                   <div className="rounded-t-2xl px-6 py-4 border-b border-white/10 flex justify-between items-center gap-4">
@@ -400,22 +445,64 @@ export default function ClientsAgentsMasterPage() {
                     <table className="w-full table-fixed text-sm">
                       <thead>
                         <tr className="border-b border-white/10 bg-white/5 text-xs uppercase text-white/70">
-                          <th className="w-1/3 px-4 py-3 text-center font-semibold">#</th>
-                          <th className="w-1/3 px-4 py-3 text-center font-semibold">Name</th>
-                          <th className="w-1/3 px-4 py-3 text-center font-semibold">Actions</th>
+                          <th className="w-[10%] px-4 py-3 text-center font-semibold">#</th>
+                          <th className="w-[30%] px-4 py-3 text-center font-semibold">Name</th>
+                          <th className="w-[35%] px-4 py-3 text-center font-semibold">Email</th>
+                          <th className="w-[25%] px-4 py-3 text-center font-semibold">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
                         {clientPageItems.map((row, idx) => (
                           <tr key={row._id} className="hover:bg-white/5">
-                            <td className="w-1/3 px-4 py-3 text-center text-white/90">
+                            <td className="px-4 py-3 text-center text-white/90">
                               {(clientPag.page - 1) * clientPag.pageSize + idx + 1}
                             </td>
-                            <td className="w-1/3 px-4 py-3 text-center font-medium break-words">
+                            <td className="px-4 py-3 text-center font-medium break-words">
                               {row.name}
                             </td>
-                            <td className="w-1/3 px-4 py-3">
-                              <div className="flex justify-center">
+                            <td className="px-4 py-3 text-center break-words">
+                              {editingClientId === row._id ? (
+                                <input
+                                  type="email"
+                                  value={editingClientEmail}
+                                  onChange={(e) => setEditingClientEmail(e.target.value)}
+                                  placeholder="client@example.com"
+                                  className="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white placeholder:text-white/40 outline-none focus:ring-2 focus:ring-orange-500/50"
+                                />
+                              ) : (
+                                <span className={row.email ? "text-white/90" : "text-white/40"}>
+                                  {row.email || "—"}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex justify-center gap-2">
+                                {editingClientId === row._id ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => saveClientEmail(row)}
+                                      disabled={actionLoading}
+                                      className="rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-2.5 py-1 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/30 disabled:opacity-50"
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={cancelEditClientEmail}
+                                      disabled={actionLoading}
+                                      className="rounded-lg bg-white/10 border border-white/10 px-2.5 py-1 text-xs font-semibold text-white/80 hover:bg-white/20 disabled:opacity-50"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </>
+                                ) : (
+                                  <ActionEditIcon
+                                    onClick={() => startEditClientEmail(row)}
+                                    disabled={actionLoading}
+                                    title="Edit email"
+                                  />
+                                )}
                                 <ActionDeleteIcon
                                   onClick={() => handleDeleteClient(row._id)}
                                   disabled={actionLoading}
@@ -427,7 +514,7 @@ export default function ClientsAgentsMasterPage() {
                         ))}
                         {!clients.length && (
                           <tr>
-                            <td colSpan={3} className="px-6 py-12 text-center text-white/50 text-sm">
+                            <td colSpan={4} className="px-6 py-12 text-center text-white/50 text-sm">
                               No clients yet. Add one above.
                             </td>
                           </tr>

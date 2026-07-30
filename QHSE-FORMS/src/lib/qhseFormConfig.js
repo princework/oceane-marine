@@ -15,6 +15,7 @@ export const QHSE_FIXED_FORM_CODES = {
   NEAR_MISS_INCIDENT: "QAF-OFD-015",
   SUPPLIER_DUE_DILIGENCE: "QAF-OFD-043",
   SUB_CONTRACTOR_AUDIT: "QAF-OFD-055",
+  STS_TRANSFER_LOCATION_QUEST: "QAF-OFD-049",
 };
 
 export const QHSE_FORM_CONFIG = {
@@ -41,6 +42,10 @@ export const QHSE_FORM_CONFIG = {
   "transfer-audit-report": {
     formCode: QHSE_FIXED_FORM_CODES.STS_TRANSFER_AUDIT,
     createPath: "qhse/form-checklist/transfer-audit/create",
+  },
+  "transfer-location-quest": {
+    formCode: QHSE_FIXED_FORM_CODES.STS_TRANSFER_LOCATION_QUEST,
+    createPath: "qhse/form-checklist/transfer-location-quest/submit",
   },
 };
 
