@@ -23,6 +23,7 @@ import {
 import OperationsListPaginationFooter from "@/app/operations/components/OperationsListPaginationFooter";
 import SelectField from "@/app/operations/components/OperationsSelectField";
 import StsDocumentationMultiUpload from "./StsDocumentationMultiUpload";
+import ImportFromEmailButton from "./ImportFromEmailButton";
 import { downloadFileFromUrl } from "@/lib/utils/sts-file-download";
 import { readJsonFromResponse } from "@/lib/utils/readJsonFromResponse";
 import {
@@ -1890,7 +1891,7 @@ function OperationsListComponent() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const router = useRouter();
-  const { canEditForm, canDeleteForm } = useOperationsRole();
+  const { canCreateForm, canEditForm, canDeleteForm } = useOperationsRole();
   const yearFieldId = useId();
   const statusFieldId = useId();
   const monthFieldId = useId();
@@ -2120,7 +2121,8 @@ function OperationsListComponent() {
             />
           </svg>
         </div>
-        <div className="flex shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
+          {canCreateForm && <ImportFromEmailButton />}
           <ActionDownloadIcon
             onClick={downloadExcel}
             disabled={filteredOperations.length === 0}
@@ -2231,9 +2233,19 @@ function OperationsListComponent() {
                   {paginatedOperations.map((op) => (
                     <tr key={op._id} className="transition hover:bg-white/5">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-white/90 font-mono">
-                          {op.Operation_Ref_No || "—"}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-white/90 font-mono">
+                            {op.Operation_Ref_No || "—"}
+                          </span>
+                          {op.emailImport?.messageId && (
+                            <span
+                              title={`Imported from email — ${op.emailImport.subject || "no subject"}`}
+                              className="shrink-0 rounded-full border border-sky-400/30 bg-sky-500/15 px-2 py-0.5 text-[11px] font-semibold text-sky-300"
+                            >
+                              ✉ Imported
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-sm text-white/90">{op.typeOfOperation || "—"}</span>
