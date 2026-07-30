@@ -20,10 +20,19 @@ export async function PATCH(req, { params }) {
     }
 
     await connectDB();
-    const { name } = await req.json();
+    const { name, email } = await req.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    }
+
+    if (!email || !email.trim()) {
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return NextResponse.json({ error: "Invalid email format" }, { status: 400 });
     }
 
     const trimmed = name.trim();
@@ -46,6 +55,7 @@ export async function PATCH(req, { params }) {
     }
 
     existing.name = trimmed;
+    existing.email = email.trim().toLowerCase();
     await existing.save();
 
     return NextResponse.json(

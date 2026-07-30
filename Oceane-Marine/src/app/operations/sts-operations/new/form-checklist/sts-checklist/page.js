@@ -12,47 +12,10 @@ import {
   isFormsSubmoduleSidebarActive,
 } from "@/app/operations/sts-operations/new/sidebarTabs";
 import OperationsSelectField from "@/app/operations/components/OperationsSelectField";
-
-/** External STS form app: `{base}/{formNo}` with optional `?operationRef=` and `mode=update` (see operations-sts-checklist). */
-const STS_CHECKLIST_EXTERNAL_BASE = (
-  process.env.NEXT_PUBLIC_STS_CHECKLIST_FORMS_BASE_URL ?? "https://operations.oceanegroup.oceanemarine.com"
-).replace(/\/$/, "");
-
-function stsChecklistExternalUrl(formNo, operationRef, options) {
-  const path = `${STS_CHECKLIST_EXTERNAL_BASE}/${encodeURIComponent(formNo)}`;
-  const ref = operationRef?.trim();
-  if (!ref) {
-    return path;
-  }
-  const params = new URLSearchParams();
-  params.set("operationRef", ref);
-  if (options?.mode === "update") {
-    params.set("mode", "update");
-  }
-  return `${path}?${params.toString()}`;
-}
-
-const FORMS = [
-  { formNo: "OPS-OFD-001", title: "Checklist 1 - Before Operation Commence", apiPath: "ops-ofd-001" },
-  { formNo: "OPS-OFD-001A", title: "Ship's Standard Questionnaire", apiPath: "ops-ofd-001a" },
-  { formNo: "OPS-OFD-002", title: "Checklist 2 - Before Run In & Mooring", apiPath: "ops-ofd-002" },
-  { formNo: "OPS-OFD-003", title: "Checklist 3A & 3B - Before Cargo Transfer", apiPath: "ops-ofd-003" },
-  { formNo: "OPS-OFD-004", title: "Checklist 4A-F - Pre Transfer Conference", apiPath: "ops-ofd-004" },
-  { formNo: "OPS-OFD-005", title: "Checklist 5A-C – After Connection Checks till Disconnection", apiPath: "ops-ofd-005" },
-  { formNo: "OPS-OFD-005B", title: "Checklist 6A & B – Checks Before & After Disconnection", apiPath: "ops-ofd-005b" },
-  { formNo: "OPS-OFD-005C", title: "Checklist 7 - Pre Transfer Conference Alongside a Terminal", apiPath: "ops-ofd-005c" },
-  { formNo: "OPS-OFD-005D", title: "Declaration for STS operations (At port & Terminal)", apiPath: "ops-ofd-005d" },
-  { formNo: "OPS-OFD-005E", title: "Declaration Of STS At Sea", apiPath: "declaration-of-sea" },
-  { formNo: "OPS-OFD-028", title: "Personnel Transfer Basket Checklist", apiPath: "ops-ofd-028" },
-  { formNo: "OPS-OFD-009", title: "Mooring Master's Job Report", apiPath: "ops-ofd-009" },
-  { formNo: "OPS-OFD-011", title: "STS Superintendent Standing Order", apiPath: "ops-ofd-011" },
-  { formNo: "OPS-OFD-014", title: "STS Equipment Checklist", apiPath: "ops-ofd-014" },
-  { formNo: "OPS-OFD-015", title: "Hourly Checks on Discharged and Received Quantities", apiPath: "ops-ofd-015" },
-  { formNo: "OPS-OFD-018", title: "Timesheet", apiPath: "ops-ofd-018" },
-  { formNo: "OPS-OFD-020", title: "Master's Feedback Form", apiPath: "ops-ofd-020" },
-  { formNo: "OPS-OFD-023", title: "Record of Work Hours (Rest Hours CKL)", apiPath: "ops-ofd-023" },
-  { formNo: "OPS-OFD-029", title: "Mooring Master Expense Sheet", apiPath: "ops-ofd-029" },
-];
+import {
+  STS_CHECKLIST_FORMS as FORMS,
+  stsChecklistExternalUrl,
+} from "@/lib/operations/stsChecklistForms";
 
 /** Map checklist table form number → linked-forms / hardcopy API target. */
 function formNoToHardcopyTarget(formNo) {
@@ -74,7 +37,8 @@ export default function StsChecklistPage() {
   const [selectedOperationRef, setSelectedOperationRef] = useState("");
   const [inProgressOperations, setInProgressOperations] = useState([]);
   const [loadingOperations, setLoadingOperations] = useState(false);
-  const [overallCopied, setOverallCopied] = useState(false);
+  const [sendingLinks, setSendingLinks] = useState(false);
+  const [sendNotice, setSendNotice] = useState(null);
   const [operationDocuments, setOperationDocuments] = useState([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [rowUploadingTarget, setRowUploadingTarget] = useState(null);
@@ -247,56 +211,33 @@ export default function StsChecklistPage() {
   // Forms that need separate copy buttons (001A, 005D, 028)
   const formsWithSeparateCopy = ['OPS-OFD-001A', 'OPS-OFD-005D', 'OPS-OFD-028'];
 
-  // Forms included in overall copy (001, 002, 003, 004, 005, 005b, 005c, 005e, 009, 011, 014, 015, 018, 020, 023, 028, 029)
-  const overallCopyFormNos = ['OPS-OFD-001', 'OPS-OFD-002', 'OPS-OFD-003', 'OPS-OFD-004', 'OPS-OFD-005', 'OPS-OFD-005B', 'OPS-OFD-005C', 'OPS-OFD-005E', 'OPS-OFD-009', 'OPS-OFD-011', 'OPS-OFD-014', 'OPS-OFD-015', 'OPS-OFD-018', 'OPS-OFD-020', 'OPS-OFD-023', 'OPS-OFD-028', 'OPS-OFD-029'];
-
-  const handleOverallCopy = async () => {
-    if (!selectedOperationRef) {
+  /** Emails all checklist links for the selected operation to that operation's assigned mooring master. */
+  const handleSendToMooringMaster = async () => {
+    const ref = selectedOperationRef?.trim();
+    if (!ref) {
       alert('Please select an Operation Ref first');
       return;
     }
 
-    const cleanOperationRef = selectedOperationRef.trim();
-    const rows = overallCopyFormNos.map((formNo) => {
-      const form = FORMS.find((f) => f.formNo === formNo);
-      if (!form) return null;
-      const url = stsChecklistExternalUrl(formNo, cleanOperationRef);
-      return { code: formNo, name: form.title, url };
-    }).filter(Boolean);
-
-    const maxCodeLen = Math.max(...rows.map(r => r.code.length));
-    const maxNameLen = Math.max(...rows.map(r => r.name.length));
-
-    const header = `${"Form Code".padEnd(maxCodeLen + 4)}${"Form Name".padEnd(maxNameLen + 4)}Link`;
-    const separator = `${"-".repeat(maxCodeLen + 4)}${"-".repeat(maxNameLen + 4)}${"-".repeat(4)}`;
-    const lines = rows.map(r =>
-      `${r.code.padEnd(maxCodeLen + 4)}${r.name.padEnd(maxNameLen + 4)}${r.url}`
-    );
-
-    const textToCopy = [header, separator, ...lines].join('\n');
-
     try {
-      await navigator.clipboard.writeText(textToCopy);
-      setOverallCopied(true);
-      setTimeout(() => setOverallCopied(false), 3000);
-    } catch (err) {
-      console.error('Failed to copy links:', err);
-      // Fallback
-      const textArea = document.createElement('textarea');
-      textArea.value = textToCopy;
-      textArea.style.position = 'fixed';
-      textArea.style.opacity = '0';
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand('copy');
-        setOverallCopied(true);
-        setTimeout(() => setOverallCopied(false), 3000);
-      } catch (err) {
-        console.error('Fallback copy failed:', err);
-        alert('Failed to copy links');
+      setSendingLinks(true);
+      setSendNotice(null);
+      const res = await fetch('/api/operations/sts/send-checklist-links', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operationRef: ref }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to send checklist links');
       }
-      document.body.removeChild(textArea);
+      setSendNotice({ type: 'ok', text: json.message || 'Checklist links sent.' });
+      setTimeout(() => setSendNotice(null), 6000);
+    } catch (err) {
+      setSendNotice({ type: 'error', text: err.message || 'Failed to send checklist links' });
+      setTimeout(() => setSendNotice(null), 8000);
+    } finally {
+      setSendingLinks(false);
     }
   };
 
@@ -498,22 +439,25 @@ export default function StsChecklistPage() {
                     Clear
                   </button>
                   <button
-                    onClick={handleOverallCopy}
-                    className="px-4 py-2.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/30 hover:border-purple-400/50 text-purple-300 hover:text-purple-200 text-sm font-medium transition-all duration-200 flex items-center gap-2"
+                    onClick={handleSendToMooringMaster}
+                    disabled={sendingLinks}
+                    title="Email all checklist links to the mooring master assigned to this operation"
+                    className="px-4 py-2.5 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/30 hover:border-purple-400/50 text-purple-300 hover:text-purple-200 text-sm font-medium transition-all duration-200 flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {overallCopied ? (
+                    {sendingLinks ? (
                       <>
-                        <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                         </svg>
-                        <span className="text-green-400">All Links Copied</span>
+                        <span>Sending…</span>
                       </>
                     ) : (
                       <>
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
-                        <span>Overall Copy</span>
+                        <span>Send to Mooring Master</span>
                       </>
                     )}
                   </button>
@@ -524,6 +468,17 @@ export default function StsChecklistPage() {
               <p className="mt-3 text-xs text-sky-300">
                 Selected: <span className="font-semibold">{selectedOperationRef}</span> - Links below will include this operation reference
               </p>
+            )}
+            {sendNotice && (
+              <div
+                className={`mt-3 rounded-xl border px-4 py-3 text-sm ${
+                  sendNotice.type === "ok"
+                    ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-100"
+                    : "border-red-400/40 bg-red-500/10 text-red-100"
+                }`}
+              >
+                {sendNotice.text}
+              </div>
             )}
           </div>
 

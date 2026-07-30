@@ -7,6 +7,15 @@ const mooringMasterSchema = new mongoose.Schema(
       required: true,
     },
 
+    /** Used to email STS checklist links to the mooring master assigned to an operation. */
+    email: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true,
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Please provide a valid email address"],
+    },
+
     availabilityStatus: {
       type: String,
       enum: ["AVAILABLE", "ASSIGNED"],
