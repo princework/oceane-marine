@@ -960,7 +960,7 @@ function ViewOperationPage() {
                 <h3 className="text-lg font-bold text-white mb-4">Equipment & Remarks</h3>
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="min-w-0 space-y-2">
-                    <label className="block text-sm font-medium text-white">Equipment Used (available only)</label>
+                    <label className="block text-sm font-medium text-white">Equipment Used</label>
                     <div className="rounded-xl border border-white/10 bg-slate-800/60 shadow min-h-[44px] p-3">
                       {op.equipments && op.equipments.length > 0 ? (
                         <ul className="space-y-2">
@@ -970,8 +970,19 @@ function ViewOperationPage() {
                               className="text-sm"
                             >
                               <span className="font-medium text-white">
-                                {eq.equipment?.equipmentName || eq.equipment?.name || "Equipment"}
+                                {/* `equipmentName` is the snapshot taken at
+                                    selection time — the last resort if the PMS
+                                    record has since been deleted. */}
+                                {eq.equipment?.equipmentName ||
+                                  eq.equipment?.name ||
+                                  eq.equipmentName ||
+                                  "Equipment"}
                               </span>
+                              {eq.equipmentSource === "Accessories" && (
+                                <span className="ml-2 rounded-full border border-sky-400/30 bg-sky-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-200">
+                                  Accessory
+                                </span>
+                              )}
                               {(eq.startTime || eq.status) && (
                                 <span className="block text-white/60 text-xs mt-0.5">
                                   {eq.startTime && `Start: ${formatDate(eq.startTime)}`}

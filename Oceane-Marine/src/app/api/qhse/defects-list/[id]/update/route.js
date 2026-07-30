@@ -12,6 +12,9 @@ import {
 
 const VALID_STATUSES = ["Open", "In Progress", "Closed"];
 
+/** Collections a PMS `equipmentId` may point at (see EquipmentDefect schema) */
+const VALID_EQUIPMENT_SOURCES = ["Equipment", "Accessories"];
+
 function parseDefectClosedTeamRecipients() {
   const raw = process.env.DEFECT_LIST_CLOSED_EMAIL_TO || "";
   return raw
@@ -82,12 +85,40 @@ export async function PUT(req, { params }) {
       );
     }
 
-    // Full edit: equipmentDefect, base, actionRequired, targetDate
-    const { status, equipmentDefect: equipmentDefectText, base, actionRequired, targetDate } = body;
+    // Full edit: PMS equipment link, description, base, action, target date
+    const {
+      status,
+      equipmentDefect: equipmentDefectText,
+      base,
+      actionRequired,
+      targetDate,
+      equipmentId,
+      equipmentSource,
+      equipmentCode,
+      equipmentSerialCode,
+      equipmentName,
+    } = body;
     if (equipmentDefectText != null) equipmentDefect.equipmentDefect = equipmentDefectText;
     if (base != null) equipmentDefect.base = base;
     if (actionRequired != null) equipmentDefect.actionRequired = actionRequired;
     if (targetDate != null) equipmentDefect.targetDate = new Date(targetDate);
+
+    // The equipment snapshot moves as a unit — a partial update would leave the
+    // stored label pointing at a different unit than `equipmentId`. Omitted
+    // entirely (e.g. the status-only PUT below) leaves the existing link alone.
+    if (equipmentId != null) {
+      if (equipmentSource && !VALID_EQUIPMENT_SOURCES.includes(equipmentSource)) {
+        return NextResponse.json(
+          { error: "Invalid equipment source" },
+          { status: 400 }
+        );
+      }
+      equipmentDefect.equipmentId = equipmentId;
+      equipmentDefect.equipmentSource = equipmentSource || undefined;
+      equipmentDefect.equipmentCode = equipmentCode || "";
+      equipmentDefect.equipmentSerialCode = equipmentSerialCode || "";
+      equipmentDefect.equipmentName = equipmentName || "";
+    }
 
     if (status && VALID_STATUSES.includes(status)) {
       equipmentDefect.status = status;

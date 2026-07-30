@@ -12,6 +12,32 @@ const equipmentUsageSchema = new mongoose.Schema(
       required: true,
     },
 
+    /**
+     * Which PMS collection `equipment` points at.
+     *
+     * The `ref` above is declared as "Equipment", so `.populate()` resolves
+     * primary equipment only and returns null for an accessory. Readers must
+     * branch on this field — see `hydrateEquipmentUsage`. Defaults to
+     * "Equipment" so operations saved before accessories were selectable keep
+     * populating exactly as they did.
+     */
+    equipmentSource: {
+      type: String,
+      enum: ["Equipment", "Accessories"],
+      default: "Equipment",
+    },
+
+    /**
+     * Name captured at selection time. Lets the view page label an accessory
+     * without a second lookup, and keeps a completed operation readable if the
+     * PMS record is later renamed or deleted.
+     */
+    equipmentName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     startTime: {
       type: Date,
       required: true,
@@ -369,5 +395,11 @@ stsOperationSchema.index({ location: 1 });
    EXPORT MODEL
 ====================================================== */
 
-export default mongoose.models.StsOperation ||
-  mongoose.model("StsOperation", stsOperationSchema);
+/** Drop the cached model so schema changes (e.g. equipmentSource) apply — without
+ *  this, a long-running dev server keeps the old schema and silently strips the
+ *  new equipment-usage fields in strict mode. */
+if (mongoose.models.StsOperation) {
+  mongoose.deleteModel("StsOperation");
+}
+
+export default mongoose.model("StsOperation", stsOperationSchema);

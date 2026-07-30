@@ -4,6 +4,12 @@ import { connectDB } from "@/lib/config/connection";
 import StsOperation from "@/lib/mongodb/models/sts-documentation/StsOperation";
 import Equipment from "@/lib/mongodb/models/pms/Equipment";
 import { buildStsCreateDocument } from "@/lib/operations/stsCreatePayload";
+import {
+  EQUIPMENT_SOURCES,
+  getOpenDefectCounts,
+  optionKey,
+  resolveEquipmentIds,
+} from "@/lib/pms/equipmentOptions";
 import { saveUploadedFile, subfolderForField } from "@/lib/utils/sts-file-storage";
 import mongoose from "mongoose";
 
@@ -126,16 +132,62 @@ export async function POST(req) {
       .filter((v) => typeof v === "string" && v.trim() !== "")
       .map((v) => v.trim());
 
-    let equipments = [];
+    // Ids arrive without a source, so both PMS collections are checked.
+    let equipmentUnits = [];
     if (equipmentIds.length > 0) {
-      equipments = await Equipment.find({
-        _id: { $in: equipmentIds },
-        isInUse: false,
-      });
+      const { resolved, missing } = await resolveEquipmentIds(equipmentIds);
 
-      if (equipments.length !== equipmentIds.length) {
+      if (missing.length > 0) {
         return NextResponse.json(
-          { error: "One or more selected equipments are not available" },
+          { error: "One or more selected equipments no longer exist in PMS" },
+          { status: 400 }
+        );
+      }
+
+      equipmentUnits = equipmentIds.map((id) => resolved.get(id));
+
+      // Primary equipment committed to another operation stays unavailable —
+      // pre-existing rule, kept. Accessories have no equivalent in-use flag.
+      const inUse = equipmentUnits.filter((unit) => unit.isInUse);
+      if (inUse.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Already in use by another operation: ${inUse
+              .map((unit) => unit.label || unit.name)
+              .join(", ")}`,
+          },
+          { status: 400 }
+        );
+      }
+
+      // Mirrors the disabled options in the form. Without this the block is
+      // cosmetic — a stale page or a direct POST would slip straight past it.
+      const retired = equipmentUnits.filter(
+        (unit) =>
+          unit.source === EQUIPMENT_SOURCES.PRIMARY && unit.status === "RETIRED"
+      );
+      if (retired.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Retired equipment cannot be used: ${retired
+              .map((unit) => unit.label || unit.name)
+              .join(", ")}`,
+          },
+          { status: 400 }
+        );
+      }
+
+      const defectCounts = await getOpenDefectCounts();
+      const defected = equipmentUnits.filter((unit) =>
+        defectCounts.get(optionKey(unit.source, unit.id))
+      );
+      if (defected.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Equipment with an open defect cannot be used: ${defected
+              .map((unit) => unit.label || unit.name)
+              .join(", ")}`,
+          },
           { status: 400 }
         );
       }
@@ -154,8 +206,10 @@ export async function POST(req) {
     /* =====================
        EQUIPMENT USAGE
     ====================== */
-    const equipmentUsage = equipments.map((eq) => ({
-      equipment: eq._id,
+    const equipmentUsage = equipmentUnits.map((unit) => ({
+      equipment: unit.id,
+      equipmentSource: unit.source,
+      equipmentName: unit.name,
       startTime: operationStartTime,
       status: "IN_USE",
     }));
@@ -192,9 +246,15 @@ export async function POST(req) {
     /* =====================
        LOCK EQUIPMENTS
     ====================== */
-    if (equipmentIds.length > 0) {
+    // Primary equipment only — accessories have no in-use flag, and passing
+    // their ids to the Equipment collection would just match nothing.
+    const primaryEquipmentIds = equipmentUnits
+      .filter((unit) => unit.source === EQUIPMENT_SOURCES.PRIMARY)
+      .map((unit) => unit.id);
+
+    if (primaryEquipmentIds.length > 0) {
       await Equipment.updateMany(
-        { _id: { $in: equipmentIds } },
+        { _id: { $in: primaryEquipmentIds } },
         {
           isInUse: true,
           lastUsedAt: new Date(),

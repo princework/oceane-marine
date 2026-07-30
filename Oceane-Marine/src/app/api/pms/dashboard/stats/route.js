@@ -111,6 +111,25 @@ export async function GET(req) {
       .limit(20)
       .lean();
 
+    // `equipments.equipment` only refs the Equipment collection, so accessory
+    // entries come back unpopulated. Resolve them in one batched lookup rather
+    // than per operation.
+    const accessoryIds = inUseOps.flatMap((op) =>
+      (op.equipments || [])
+        .filter((e) => e.equipmentSource === "Accessories" && e.equipment)
+        .map((e) => e.equipment)
+    );
+
+    const accessoriesInUse =
+      accessoryIds.length > 0
+        ? await Accessories.find({ _id: { $in: accessoryIds } })
+            .select("equipmentNo equipmentName category")
+            .lean()
+        : [];
+    const accessoryById = new Map(
+      accessoriesInUse.map((item) => [String(item._id), item])
+    );
+
     // Flatten into rows
     const equipmentInUse = [];
     inUseOps.forEach((op) => {
@@ -118,12 +137,26 @@ export async function GET(req) {
         (e) => e.status === "IN_USE"
       );
       inUseItems.forEach((item) => {
+        const accessory =
+          item.equipmentSource === "Accessories"
+            ? accessoryById.get(String(item.equipment))
+            : null;
+
         equipmentInUse.push({
           date: op.operationStartTime,
           operationRef: op.Operation_Ref_No,
-          equipmentName: item.equipment?.equipmentName || "—",
-          equipmentCode: item.equipment?.equipmentCode || "—",
-          equipmentType: item.equipment?.equipmentType || "—",
+          // `item.equipmentName` is the snapshot taken at selection time — the
+          // last resort when the PMS record has since been deleted.
+          equipmentName:
+            accessory?.equipmentName ||
+            item.equipment?.equipmentName ||
+            item.equipmentName ||
+            "—",
+          equipmentCode:
+            accessory?.equipmentNo || item.equipment?.equipmentCode || "—",
+          equipmentType: accessory
+            ? `Accessory${accessory.category ? ` · ${accessory.category}` : ""}`
+            : item.equipment?.equipmentType || "—",
           location: op.location?.locationName || "—",
           startTime: item.startTime,
         });
