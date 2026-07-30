@@ -21,6 +21,10 @@ import { useOperationsClientPagination } from "@/app/operations/hooks/useOperati
 import OperationsListPaginationFooter from "@/app/operations/components/OperationsListPaginationFooter";
 
 const statusTone = {
+  DRAFT: {
+    dot: "bg-slate-500",
+    pill: "bg-slate-500/80 border-slate-400/40 text-slate-100",
+  },
   INPROGRESS: {
     dot: "bg-sky-600",
     pill: "bg-sky-500/80 border-sky-400/40 text-sky-100",

@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const OPERATION_TYPE_VALUES = ["underway", "At Anchor"];
 const FLOW_DIRECTION_VALUES = ["left", "right", "both"];
-const OPERATION_STATUS_VALUES = ["INPROGRESS", "COMPLETED", "CANCELED", "Lined Up"];
+const OPERATION_STATUS_VALUES = ["DRAFT", "INPROGRESS", "COMPLETED", "CANCELED", "Lined Up"];
 const VESSEL_TYPE_VALUES = [
   "VLCC",
   "ULCC",

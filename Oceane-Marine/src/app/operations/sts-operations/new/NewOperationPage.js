@@ -125,6 +125,11 @@ function applyFieldsToForm(form, fields, skipNames) {
 }
 
 const statusTone = {
+  DRAFT: {
+    dot: "bg-slate-500",
+    pill: "bg-slate-500/80 border-slate-400/40 text-slate-100",
+    option: "text-slate-100",
+  },
   INPROGRESS: {
     dot: "bg-sky-600",
     pill: "bg-sky-500/80 border-sky-400/40 text-sky-100",
@@ -733,7 +738,7 @@ export default function NewOperationPage() {
 
       formData.set("Operation_Ref_No", opRef);
 
-      const finalStatus = isSubmit ? status : "INPROGRESS";
+      const finalStatus = isSubmit ? status : "DRAFT";
       formData.set("operationStatus", finalStatus);
 
       if (isSubmit) {
@@ -1783,6 +1788,7 @@ const STS_LIST_QUARTER_OPTIONS = [
 
 const STS_LIST_STATUS_OPTIONS = [
   { value: "", label: "All" },
+  { value: "DRAFT", label: "Draft" },
   { value: "INPROGRESS", label: "In Progress" },
   { value: "COMPLETED", label: "Completed" },
   { value: "Lined Up", label: "Lined Up" },

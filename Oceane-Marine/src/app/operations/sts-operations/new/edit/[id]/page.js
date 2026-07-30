@@ -24,6 +24,11 @@ import {
 } from "../../stsEquipmentOptions";
 
 const statusTone = {
+  DRAFT: {
+    dot: "bg-slate-500",
+    pill: "bg-slate-500/80 border-slate-400/40 text-slate-100",
+    option: "text-slate-100",
+  },
   INPROGRESS: {
     dot: "bg-sky-600",
     pill: "bg-sky-500/80 border-sky-400/40 text-sky-100",
@@ -366,8 +371,8 @@ export default function EditOperationPage() {
     try {
       const formData = new FormData(formRef.current);
 
-      // Add status - always INPROGRESS for draft, keep selected status for submit
-      const finalStatus = isSubmit ? status : "INPROGRESS";
+      // Add status - always DRAFT for draft, keep selected status for submit
+      const finalStatus = isSubmit ? status : "DRAFT";
       formData.append("status", finalStatus);
       formData.append("operationStatus", finalStatus);
       

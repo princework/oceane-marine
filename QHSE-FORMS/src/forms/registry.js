@@ -5,6 +5,7 @@ export const FORM_CODES = [
   "poac-cross-competency",
   "supplier-questionnaire",
   "transfer-audit-report",
+  "transfer-location-quest",
 ];
 
 const formTitles = {
@@ -14,6 +15,7 @@ const formTitles = {
   "poac-cross-competency": "POAC Cross Competency",
   "supplier-questionnaire": "Supplier Due Diligence Questionnaire",
   "transfer-audit-report": "STS Transfer Audit Report",
+  "transfer-location-quest": "Transfer Location Questionnaire",
 };
 
 export function getFormTitle(formCode) {

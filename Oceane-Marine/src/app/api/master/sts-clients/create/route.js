@@ -13,10 +13,14 @@ export async function POST(req) {
       );
     }
     await connectDB();
-    const { name } = await req.json();
+    const { name, email } = await req.json();
     const trimmed = typeof name === "string" ? name.trim() : "";
     if (!trimmed) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
+    }
+    const trimmedEmail = typeof email === "string" ? email.trim() : "";
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      return NextResponse.json({ error: "Invalid email format" }, { status: 400 });
     }
     const existing = await MasterStsClient.findOne({ name: trimmed });
     if (existing) {
@@ -26,7 +30,10 @@ export async function POST(req) {
       );
     }
 
-    const doc = new MasterStsClient({ name: trimmed });
+    const doc = new MasterStsClient({
+      name: trimmed,
+      ...(trimmedEmail ? { email: trimmedEmail.toLowerCase() } : {}),
+    });
     await doc.save();
     return NextResponse.json(
       { message: "Client created successfully", data: doc },

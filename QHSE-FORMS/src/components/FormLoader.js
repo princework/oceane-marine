@@ -37,6 +37,10 @@ const PoacCrossCompetency = dynamic(() => import("@/forms/poac-cross-competency/
   ssr: false,
   loading: FormLoading,
 });
+const TransferLocationQuest = dynamic(() => import("@/forms/transfer-location-quest/TransferLocationQuestFormPage"), {
+  ssr: false,
+  loading: FormLoading,
+});
 
 function getFormComponent(formCode) {
   switch (formCode) {
@@ -52,6 +56,8 @@ function getFormComponent(formCode) {
       return SupplierQuestionnaire;
     case "transfer-audit-report":
       return TransferAuditReport;
+    case "transfer-location-quest":
+      return TransferLocationQuest;
     default:
       return null;
   }

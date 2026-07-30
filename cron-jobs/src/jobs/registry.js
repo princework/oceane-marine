@@ -2,6 +2,7 @@ import * as hrCid from "./hrCidExpiryReminders.js";
 import * as hrStatutory from "./hrStatutoryCertificateExpiryReminders.js";
 import * as hrPoacPassport from "./hrPoacPassportExpiryReminders.js";
 import * as stsDocs from "./operationsStsDocumentationFollowUp.js";
+import * as linedUpToInProgress from "./operationsLinedUpToInProgress.js";
 import * as pmsTesting from "./pmsEquipmentTestingReminders.js";
 import * as pmsWarehouse from "./pmsWarehouseEstimatedEndOverdue.js";
 import * as spSyncHr from "./sharepointSyncHr.js";
@@ -26,6 +27,7 @@ export const allJobs = [
   hrStatutory,
   hrPoacPassport,
   stsDocs,
+  linedUpToInProgress,
   pmsTesting,
   pmsWarehouse,
   spSyncHr,

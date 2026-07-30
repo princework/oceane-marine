@@ -168,7 +168,7 @@ const stsOperationSchema = new mongoose.Schema(
 
     operationStatus: {
       type: String,
-      enum: ["INPROGRESS", "COMPLETED", "CANCELED", "Lined Up"],
+      enum: ["DRAFT", "INPROGRESS", "COMPLETED", "CANCELED", "Lined Up"],
       default: "Lined Up"
     },
 
@@ -343,6 +343,14 @@ const stsOperationSchema = new mongoose.Schema(
 
     /** Sent once when COMPLETED ≥ 7 days and required documents were still missing */
     stsDocFollowUpCompletedMissingSentAt: Date,
+
+    /* ================= TRANSFER LOCATION QUESTIONNAIRE (client email dedupe) ================= */
+
+    /** Set when the QHSE team emails the client the Transfer Location Questionnaire link. */
+    transferLocationQuestSentAt: Date,
+
+    /** Recipient the link was last sent to. */
+    transferLocationQuestSentTo: String,
 
     /* ================= EMAIL IMPORT PROVENANCE ================= */
 
