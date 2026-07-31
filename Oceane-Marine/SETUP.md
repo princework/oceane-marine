@@ -4,7 +4,13 @@ The **Import from Email** button on the STS Operations list reads client nominat
 from a shared operations mailbox, extracts the operation details, files the PDF attachments
 into their document slots, and creates a **draft** STS operation for an operator to review.
 
-Nothing is ever submitted automatically — the import stops at an `INPROGRESS` draft.
+Nothing is ever submitted automatically — the import stops at a `DRAFT` operation, which is
+the head of the Transfer Location Questionnaire chain:
+
+```
+email → DRAFT → questionnaire sent to client → client submits → QHSE approves
+      → "Lined Up" → (cron, at operationStartTime) → INPROGRESS
+```
 
 ---
 
@@ -21,9 +27,26 @@ Add these to `.env.local` (and to the deployment environment).
 | `GMAIL_USER_ID` | — | Mailbox to read. Defaults to `me` (the account that granted the token) |
 | `GMAIL_SEARCH_LABEL` | — | Restrict the search to one Gmail label, e.g. `Clients/Nominations` |
 | `GMAIL_SYNCED_LABEL` | — | Label applied after import. Defaults to `STS/Synced` |
+| `GMAIL_SEARCH_WINDOW` | — | How far back to search. Defaults to `30d` |
+| `GMAIL_REQUIRE_ATTACHMENT` | — | Set `true` to list only emails that carry an attachment. Off by default |
 
-The mailbox search is always scoped to `has:attachment` within the last 30 days. Setting
-`GMAIL_SEARCH_LABEL` narrows it further and is recommended for a busy mailbox.
+An email qualifies on its **subject** alone — a nomination that states the vessels and
+location in the body is importable with nothing attached, and the operator adds the
+documents afterwards. Set `GMAIL_REQUIRE_ATTACHMENT=true` to go back to the older
+attachments-only picker.
+
+Setting `GMAIL_SEARCH_LABEL` narrows the search further and is recommended for a busy
+mailbox. If none of `GMAIL_SUBJECT_FILTER`, `GMAIL_SEARCH_LABEL` or a sender search is in
+play, `has:attachment` is applied anyway — otherwise the picker would list every recent
+message in the mailbox.
+
+`GMAIL_SEARCH_WINDOW` takes a count and a unit — `d` (days), `m` (months) or `y` (years) —
+so `90d`, `6m` and `1y` are all valid. It is passed straight to Gmail's `newer_than:`
+operator. A value Gmail would reject (`1w`, `30 days`, `0d`) is ignored with a warning in
+the server log and the default `30d` is used, so a typo can never leave the picker
+mysteriously empty. Widening the window makes each search slower and returns more
+candidates, which the picker caps at 50 — pair a wide window with `GMAIL_SEARCH_LABEL` or
+`GMAIL_SUBJECT_FILTER`.
 
 ---
 
@@ -132,8 +155,9 @@ deterministic matching rather than failing.
 2. Sign in as a user whose **operations role is `editor`** — the button is hidden and the
    API returns 403 for every other role.
 3. Go to **Operations → STS Operations → List**.
-4. Click **Import from Email**. The dialog lists client emails from the last 30 days that
-   have attachments. Emails already imported carry a **Synced** badge.
+4. Click **Import from Email**. The dialog lists client emails from the search window
+   (30 days unless `GMAIL_SEARCH_WINDOW` says otherwise — the dialog states which) whose
+   subject matches. Emails already imported carry a **Synced** badge.
 5. Click **Import** on one. You land on the draft's edit page with fields and documents
    pre-filled. Review, correct anything blank or wrong, then save or submit as usual.
 
@@ -169,16 +193,22 @@ list instead, where the operator can file it manually.
 
 ## Narrowing which emails appear
 
-By default the picker lists every message from the last 30 days that has an attachment.
-Two optional variables cut that down:
+Four optional variables shape which emails reach the picker:
 
 | Variable | Effect |
 | --- | --- |
 | `GMAIL_SUBJECT_FILTER` | Only show emails whose subject contains one of these terms. Comma-separated terms are OR-ed: `STS,nomination` becomes `subject:(STS OR nomination)`. |
 | `GMAIL_SEARCH_LABEL` | Only show emails carrying this Gmail label, e.g. `Clients/Nominations`. |
+| `GMAIL_SEARCH_WINDOW` | How far back to look. `90d`, `6m`, `1y`. Widens rather than narrows. |
+| `GMAIL_REQUIRE_ATTACHMENT` | `true` hides emails with no attachment. Off by default. |
 
-Both are additive on top of the built-in `has:attachment newer_than:30d` scope, and both
-take effect on server restart.
+All four take effect on server restart. Drafts are always excluded — Gmail returns them
+from the same message list as received mail, so a half-composed reply carrying the
+original's attachments would otherwise appear as an importable nomination.
+
+Note that `GMAIL_SUBJECT_FILTER` matches whole words, not substrings — `STS` finds
+"STS Nomination" but not "Ship-to-ship nomination". List every wording your clients
+actually use.
 
 ---
 
@@ -205,3 +235,47 @@ so the value always lines up with the form's dropdown.
 > ⚠️ This means client emails can grow your master data. A misspelling in an email
 > (`Shel Trading`) becomes a new master record, not a match. Review auto-added names
 > periodically — filter on `source: "EMAIL_IMPORT"` — and merge any duplicates.
+
+### The client's email address
+
+The client master record needs an `email` before QHSE can send the Transfer Location
+Questionnaire. The import fills it in from the **sender of the nomination**, so the
+questionnaire step is not blocked on someone typing it in by hand.
+
+It only ever fills a blank — an address already on the record is never overwritten,
+because that is the one your team curated. The address the nomination arrived from may
+belong to a broker, an agent, or a colleague forwarding the mail, so check auto-filled
+addresses under **Master Data → Clients & Agents** before relying on them.
+
+---
+
+## Operation timings
+
+`operationStartTime` and `operationEndTime` are read from the email.
+
+| Written as | Read as |
+| --- | --- |
+| `Operation start: 12 Aug 2026 0600 hrs` | 2026-08-12 06:00 UTC |
+| `Laycan: 10–14 August 2026` | starts 2026-08-10 |
+| `Operation end: 14 Aug 2026` | ends 2026-08-14 |
+| `ETA: 2026-08-12T06:30+04:00` | 2026-08-12 02:30 UTC |
+| `12/08/2026` | **ignored** — see below |
+
+Times with no stated zone are read as **UTC**, not the server's local zone, so the same
+email imports identically wherever the app runs.
+
+A laycan sets the **start** only — its opening day is the earliest the operation may
+begin. Its closing day is a cancelling date, not a completion time, so it never becomes
+`operationEndTime`. An explicit `Operation start:` line beats a laycan window.
+
+All-numeric dates like `12/08/2026` are deliberately **not** parsed: `DD/MM` and `MM/DD`
+cannot be told apart, and starting an operation on the wrong day is worse than leaving the
+field blank. Ask clients for a spelled-out month, or have the operator set the date on the
+draft.
+
+> ⚠️ `operationStartTime` is required by the schema, so an email that states no date at
+> all falls back to the time of import. That matters: the cron that promotes **Lined Up**
+> to **In Progress** keys off this value, so a fallback start makes the operation go
+> active as soon as the questionnaire is approved. The import response lists which fields
+> genuinely came from the email under `summary.filled` — if `operationStartTime` is
+> missing from that list, set the real date on the draft before approving.

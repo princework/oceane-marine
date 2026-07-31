@@ -16,10 +16,17 @@ import {
   getMessageDetail,
   downloadAttachment,
   markSynced,
+  searchWindow,
+  requiresAttachment,
   GmailAuthError,
   GmailConfigError,
 } from "@/lib/gmail";
-import { extractFields, sanitizeExtractedFields, routeAttachments } from "@/lib/email-extract";
+import {
+  extractFields,
+  sanitizeExtractedFields,
+  routeAttachments,
+  senderEmailAddress,
+} from "@/lib/email-extract";
 
 // googleapis depends on Node built-ins and will not run on the Edge runtime.
 export const runtime = "nodejs";
@@ -41,16 +48,26 @@ const PERMISSION_MESSAGE = "You do not have permission to create STS operation r
  *
  * @returns {Promise<{name: string|null, created: boolean}>}
  */
-async function resolveOrCreateMasterName(Model, rawName) {
+async function resolveOrCreateMasterName(Model, rawName, extraFields = {}) {
   const name = typeof rawName === "string" ? rawName.trim().replace(/\s+/g, " ") : "";
   if (!name) return { name: null, created: false };
 
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const existing = await Model.findOne({ name: { $regex: `^${escaped}$`, $options: "i" } }).lean();
-  if (existing) return { name: existing.name, created: false };
+  if (existing) {
+    /* Fill blanks on a record that predates the import — but never overwrite a
+       value an admin curated by hand, which is the one the team trusts. */
+    const missing = Object.fromEntries(
+      Object.entries(extraFields).filter(([key, value]) => value && !existing[key])
+    );
+    if (Object.keys(missing).length) {
+      await Model.updateOne({ _id: existing._id }, { $set: missing }, { runValidators: true });
+    }
+    return { name: existing.name, created: false };
+  }
 
   try {
-    const created = await Model.create({ name, source: "EMAIL_IMPORT" });
+    const created = await Model.create({ name, source: "EMAIL_IMPORT", ...extraFields });
     return { name: created.name, created: true };
   } catch (error) {
     // Unique index tripped by a concurrent import — re-read and use the winner.
@@ -121,13 +138,42 @@ export async function GET(req) {
   const { response: denied } = await requireEditor();
   if (denied) return denied;
 
+  await connectDB();
+
   try {
     const { searchParams } = new URL(req.url);
     const from = searchParams.get("from") || undefined;
     const limit = Number(searchParams.get("limit")) || 25;
 
     const messages = await listCandidateMessages({ from, limit });
-    return NextResponse.json({ messages });
+
+    /* "Already imported" is a question about the operation records, not about the
+       STS/Synced label: deleting an operation leaves the label on the message, and
+       anyone can add or remove it by hand in Gmail. Matching on emailImport.messageId
+       keeps the badge honest, and naming the operation it became is more use to the
+       operator than a bare badge. Versions are not filtered — any version referencing
+       the message means an operation exists. */
+    const imported = await StsOperation.find({
+      "emailImport.messageId": { $in: messages.map((message) => message.id) },
+    })
+      .select("emailImport.messageId Operation_Ref_No")
+      .lean();
+
+    const refByMessageId = new Map(
+      imported.map((operation) => [operation.emailImport.messageId, operation.Operation_Ref_No])
+    );
+
+    /* The picker describes its own scope, so changing GMAIL_SEARCH_WINDOW or
+       GMAIL_REQUIRE_ATTACHMENT never leaves the operator reading stale copy. */
+    return NextResponse.json({
+      messages: messages.map((message) => ({
+        ...message,
+        synced: refByMessageId.has(message.id),
+        operationRef: refByMessageId.get(message.id) || null,
+      })),
+      searchWindow: searchWindow(),
+      requiresAttachment: requiresAttachment(),
+    });
   } catch (error) {
     return errorResponse(error, "Could not read the operations mailbox. Try again shortly.");
   }
@@ -159,6 +205,15 @@ export async function POST(req) {
     const email = await getMessageDetail(messageId);
     if (!email) {
       return NextResponse.json({ error: "No new client emails found." }, { status: 404 });
+    }
+
+    /* The message id arrives from the caller rather than the picker, so the
+       search query's filters have not necessarily been applied to it. */
+    if (email.isDraft) {
+      return NextResponse.json(
+        { error: "That message is an unsent draft in the mailbox, not a client email." },
+        { status: 400 }
+      );
     }
 
     /* Build the allowed value lists from live master data, so extraction is
@@ -234,9 +289,20 @@ export async function POST(req) {
     const operationRef = formatStsOperationRef(year, counter.seq);
 
     /* Client and agent are free text on the operation, backed by master lists.
-       An unrecognised name is added to the master data rather than dropped. */
+       An unrecognised name is added to the master data rather than dropped.
+
+       The sender's address is stored against the client so the Transfer Location
+       Questionnaire has somewhere to go — without it the QHSE "Send to Client"
+       step stops on a client that has no email. It is the address the nomination
+       actually arrived from, which may be a broker or an agent rather than the
+       client's own desk, so it only ever fills a blank. */
+    const clientEmail = senderEmailAddress(email.from);
     const [clientResult, agentResult] = await Promise.all([
-      resolveOrCreateMasterName(MasterStsClient, fields.client),
+      resolveOrCreateMasterName(
+        MasterStsClient,
+        fields.client,
+        clientEmail ? { email: clientEmail } : {}
+      ),
       resolveOrCreateMasterName(MasterStsAgent, fields.agent),
     ]);
 
@@ -249,12 +315,14 @@ export async function POST(req) {
        parentOperationId to build later versions. Required by the schema. */
     const parentOperationId = new mongoose.Types.ObjectId();
 
-    /* Draft only — never submitted. The operator reviews and submits from the edit page. */
+    /* DRAFT is the head of the questionnaire chain: the QHSE team emails the
+       Transfer Location Questionnaire to the client, and approving it flips the
+       operation to "Lined Up". Importing must never skip that review. */
     const doc = buildStsCreateDocument({
       parentOperationId,
       body: {
         Operation_Ref_No: operationRef,
-        operationStatus: "INPROGRESS",
+        operationStatus: "DRAFT",
         typeOfOperation: fields.typeOfOperation || "",
         location: fields.location ? locationsByName.get(fields.location) : "",
         typeOfCargo: fields.typeOfCargo ? cargoByName.get(fields.typeOfCargo) : "",
@@ -269,7 +337,13 @@ export async function POST(req) {
       },
       uploadedFiles,
       manualDocumentationEntries,
-      operationStartTime: new Date(),
+      /* The schema requires a start time, so an email that does not state one
+         falls back to now and the operator corrects it on the draft. The cron
+         that flips "Lined Up" to INPROGRESS keys off this value, so a fallback
+         start means the operation goes active as soon as it is approved —
+         `summary.filled` reports whether the date really came from the email. */
+      operationStartTime: fields.operationStartTime || new Date(),
+      operationEndTime: fields.operationEndTime || null,
     });
 
     /* Provenance: marks the record as email-derived and ties it back to the message. */
@@ -299,6 +373,7 @@ export async function POST(req) {
         filled: Object.entries(fields)
           .filter(([, value]) => value)
           .map(([key]) => key),
+        clientEmail: clientEmail || null,
         routed: Object.keys(uploadedFiles),
         unrouted: manualDocumentationEntries.length,
         createdMasters,

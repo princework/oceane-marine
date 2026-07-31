@@ -19,6 +19,8 @@ Rules:
 - For fields with a fixed list of allowed values, return one of those values verbatim, or null. If the email describes something close to but not exactly an allowed value, return null.
 - Vessel names: return the name as written, without the "MT"/"MV" prefix if one is present.
 - Quantity: return metric tonnes as a plain number string, digits only. If the email gives another unit, return null.
+- Dates and times: return ISO 8601 — "2026-08-12" when only a date is given, "2026-08-12T06:00" when a time is given too. A time with no stated zone is UTC.
+- A laycan or date window gives the start: use the first day of the window. Its last day is a cancelling date, not a completion time — never return it as the end. Return an end only when the email actually says when the operation finishes.
 
 A blank field an operator fills in is far better than a wrong one that gets saved.`;
 
@@ -76,6 +78,12 @@ export function buildExtractionTool(options) {
           "Port or shipping agent, if named. Organisation name only, verbatim."
         ),
         quantity: nullableString("Cargo quantity in metric tonnes, digits only, if stated in MT."),
+        operationStartTime: nullableString(
+          "When the transfer starts, ISO 8601. The first day of a laycan window. Null if the email does not say."
+        ),
+        operationEndTime: nullableString(
+          "When the transfer is expected to finish, ISO 8601. Null if the email does not say."
+        ),
       },
       required: [
         "typeOfOperation",
@@ -89,6 +97,8 @@ export function buildExtractionTool(options) {
         "client",
         "agent",
         "quantity",
+        "operationStartTime",
+        "operationEndTime",
       ],
     },
   };
@@ -106,6 +116,8 @@ const FIELD_KEYS = [
   "client",
   "agent",
   "quantity",
+  "operationStartTime",
+  "operationEndTime",
 ];
 
 /** Free-text fields, kept verbatim rather than checked against an option list. */
@@ -114,8 +126,164 @@ const FREE_TEXT_KEYS = { chs: 200, ms: 200, client: 120, agent: 120 };
 /** Fields that must be a plain number, stored as a digit string. */
 const NUMERIC_KEYS = ["loaCHS", "loaMS", "quantity"];
 
+/** Fields carried as `Date` objects rather than strings. */
+const DATE_KEYS = ["operationStartTime", "operationEndTime"];
+
 function emptyFields() {
   return FIELD_KEYS.reduce((acc, key) => ({ ...acc, [key]: null }), {});
+}
+
+/* =====================
+   DATES
+====================== */
+
+const MONTHS = {
+  jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
+  jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
+};
+
+/** Plausible range for an operation date — catches a misread year like 20226. */
+const MIN_YEAR = 2000;
+const MAX_YEAR = 2100;
+
+/**
+ * Build a UTC date from calendar parts, rejecting anything impossible.
+ *
+ * `Date.UTC` silently rolls 2026-13-01 forward into 2027, and 31 February into
+ * March, so every component is checked and the result is compared back against
+ * what was asked for.
+ */
+function utcDate(year, month, day, hour = 0, minute = 0) {
+  if (!(year >= MIN_YEAR && year <= MAX_YEAR)) return null;
+  if (!(month >= 1 && month <= 12)) return null;
+  if (!(day >= 1 && day <= 31)) return null;
+  if (!(hour >= 0 && hour <= 23) || !(minute >= 0 && minute <= 59)) return null;
+
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  if (date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return date;
+}
+
+/**
+ * Parse the ISO 8601 the tool schema asks the model for: "2026-08-12",
+ * "2026-08-12T06:00", optionally with a Z or ±HH:mm offset.
+ *
+ * A value with no offset is read as UTC rather than server-local time. STS
+ * timings are quoted in UTC, and letting the server's zone decide would shift a
+ * transfer by hours depending on where the app happens to be deployed.
+ */
+export function parseIsoDateTime(value) {
+  if (typeof value !== "string") return null;
+
+  const match =
+    /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::\d{2})?\s*(Z|[+-]\d{2}:?\d{2})?)?$/i.exec(
+      value.trim()
+    );
+  if (!match) return null;
+
+  const [, year, month, day, hour, minute, offset] = match;
+  const base = utcDate(Number(year), Number(month), Number(day), Number(hour || 0), Number(minute || 0));
+  if (!base || !offset || offset.toUpperCase() === "Z") return base;
+
+  const [offsetHours, offsetMinutes] = offset.slice(1).replace(":", "").match(/\d{2}/g).map(Number);
+  const shift = (offsetHours * 60 + offsetMinutes) * 60000;
+  return new Date(base.getTime() + (offset[0] === "-" ? shift : -shift));
+}
+
+/** "12 Aug 2026", "12-Aug-2026", optionally followed by 0600 / 06:00. */
+const PROSE_DATE =
+  /\b(\d{1,2})[\s-]+([a-z]{3,9})[\s-]+(\d{4})\b(?:[\s,]+(?:at\s+)?(\d{1,2}):?(\d{2})\s*(?:hrs|hours|lt|utc|gmt)?)?/i;
+
+/** "2026-08-12", optionally followed by 06:00. */
+const ISO_DATE = /\b(\d{4})-(\d{2})-(\d{2})\b(?:[T\s](\d{1,2}):(\d{2}))?/;
+
+/**
+ * A window sharing one month and year — "10–14 August 2026", "10 to 14 Aug 2026".
+ * Matched before the single-date forms because the leftmost single-date match
+ * inside "10–14 August 2026" is the *14th*: the day the window closes, not the
+ * day it opens.
+ */
+const DATE_RANGE = /\b(\d{1,2})\s*(?:–|—|-|to|until|till)\s*(\d{1,2})\s+([a-z]{3,9})\s+(\d{4})\b/i;
+
+/**
+ * Read a date out of prose, without a model.
+ *
+ * Deliberately narrow: an ISO date, or a date with a spelled-out month. All
+ * numeric forms such as 12/08/2026 are ignored on purpose — DD/MM and MM/DD
+ * cannot be told apart, and starting an operation on the wrong day is far worse
+ * than leaving the field for the operator to fill in.
+ */
+export function parseProseDate(text) {
+  const source = String(text || "");
+
+  /* A window resolves to the day it opens — the earliest the operation can
+     begin. Must run first; see DATE_RANGE. */
+  const range = DATE_RANGE.exec(source);
+  if (range) {
+    const month = MONTHS[range[3].slice(0, 3).toLowerCase()];
+    if (month) {
+      const date = utcDate(Number(range[4]), month, Number(range[1]));
+      if (date) return date;
+    }
+  }
+
+  const iso = ISO_DATE.exec(source);
+  if (iso) {
+    const date = utcDate(
+      Number(iso[1]), Number(iso[2]), Number(iso[3]), Number(iso[4] || 0), Number(iso[5] || 0)
+    );
+    if (date) return date;
+  }
+
+  const prose = PROSE_DATE.exec(source);
+  if (prose) {
+    const month = MONTHS[prose[2].slice(0, 3).toLowerCase()];
+    if (month) {
+      const date = utcDate(
+        Number(prose[3]), month, Number(prose[1]), Number(prose[4] || 0), Number(prose[5] || 0)
+      );
+      if (date) return date;
+    }
+  }
+
+  return null;
+}
+
+/** Labels naming the moment the operation begins. */
+const START_LABELS = ["operation start", "start date", "commencement", "commencing", "eta"];
+
+/* A laycan is the laydays/cancelling window. Its opening day is the earliest the
+   operation may begin, so it is a reasonable start when nothing more precise is
+   given — but its closing day is the date the charter can be cancelled, NOT a
+   completion time, so it deliberately never becomes operationEndTime. */
+const LAYCAN_LABELS = ["laycan", "laydays"];
+
+const END_LABELS = ["operation end", "end date", "completion", "etd", "etc"];
+
+/** Pull a date from an explicitly labelled line, e.g. "Operation start: 12 Aug 2026". */
+function matchLabelledDate(text, labels) {
+  const pattern = new RegExp(`\\b(?:${labels.join("|")})\\b[^:\\n=]*[:=]\\s*(.+)$`, "i");
+
+  for (const line of String(text || "").split(/\r?\n/)) {
+    const match = line.match(pattern);
+    if (!match) continue;
+    const date = parseProseDate(match[1]);
+    if (date) return date;
+  }
+  return null;
+}
+
+/**
+ * The address out of a From header — "Ops Desk <ops@client.com>" → "ops@client.com".
+ * Returns null unless the result actually looks like an address, so a malformed
+ * header never reaches the master data.
+ */
+export function senderEmailAddress(from) {
+  const source = String(from || "").trim();
+  const angled = /<([^>]+)>/.exec(source);
+  const candidate = (angled ? angled[1] : source).trim().toLowerCase();
+
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate) ? candidate : null;
 }
 
 /**
@@ -145,6 +313,21 @@ export function sanitizeExtractedFields(raw, options) {
   for (const key of NUMERIC_KEYS) {
     const value = typeof raw[key] === "string" ? raw[key].trim().replace(/[,\s]/g, "") : "";
     out[key] = value && /^\d+(\.\d+)?$/.test(value) ? value : null;
+  }
+
+  /* Accepts either shape: the model returns ISO strings, the deterministic pass
+     returns Dates, and this runs over both (and over its own output when the
+     route re-validates the merged result). */
+  for (const key of DATE_KEYS) {
+    const value = raw[key];
+    if (value instanceof Date) out[key] = Number.isNaN(value.getTime()) ? null : value;
+    else out[key] = parseIsoDateTime(value);
+  }
+
+  /* An end at or before the start is a misreading, not a real timing. Keep the
+     start — the record requires one — and leave the end for the operator. */
+  if (out.operationStartTime && out.operationEndTime && out.operationEndTime <= out.operationStartTime) {
+    out.operationEndTime = null;
   }
 
   return out;
@@ -320,6 +503,12 @@ export function extractFieldsDeterministically({ subject, bodyText, options }) {
   const { loaCHS, loaMS } = matchVesselLoa(text);
   fields.loaCHS = loaCHS;
   fields.loaMS = loaMS;
+
+  /* An explicit start beats a laycan window: the window says when the operation
+     may begin, an explicit line says when it does. */
+  fields.operationStartTime =
+    matchLabelledDate(text, START_LABELS) || matchLabelledDate(text, LAYCAN_LABELS);
+  fields.operationEndTime = matchLabelledDate(text, END_LABELS);
 
   return fields;
 }
