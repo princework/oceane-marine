@@ -14,6 +14,14 @@ const masterVendorSchema = new mongoose.Schema(
     },
 
     isActive: { type: Boolean, default: true },
+
+    /* ---- Sub-Contractor Audit link — last send (persists across page reloads) ---- */
+    auditSentAt: { type: Date },
+    auditSentTo: { type: String, trim: true },
+    auditSentAuditorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "MasterAuditor",
+    },
   },
   { timestamps: true }
 );

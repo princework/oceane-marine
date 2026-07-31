@@ -1,23 +1,13 @@
 import { Suspense } from "react";
-import QhseSidebar from "../../../components/QhseSidebar";
-import SideBarSkeleton from "../../../components/SideBarSkeleton";
 import MOCManagementChangeListPage from "./MOCManagementChangeListPage.js";
 
 import QhseSuspenseFallback from "@/app/qhse/components/QhseSuspenseFallback";
 export default function MOCManagementChangeListPageWrapper() {
   return (
-    <div className="min-h-screen bg-transparent text-white flex">
-      {/* Sidebar */}
-      <Suspense fallback={<SideBarSkeleton />}>
-        <QhseSidebar />
-      </Suspense>
-
-      {/* Main content */}  
-      <Suspense
+    <Suspense
         fallback={<QhseSuspenseFallback />}
       >
         <MOCManagementChangeListPage />
       </Suspense>
-    </div>
   );
 }

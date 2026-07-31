@@ -466,6 +466,15 @@ export default function AuditSubContractorListAdminPage() {
                         {selectedAudit.operatingAreas || "—"}
                       </span>
                     </div>
+                    <div className="md:col-span-2 rounded-lg border border-sky-400/20 bg-sky-500/5 px-3 py-2">
+                      <span className="text-slate-400">Assigned Auditor: </span>
+                      <span className="text-sky-200 font-semibold">
+                        {selectedAudit.auditorName || "—"}
+                      </span>
+                      {selectedAudit.auditorEmail && (
+                        <span className="text-slate-400"> ({selectedAudit.auditorEmail})</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -686,6 +695,9 @@ export default function AuditSubContractorListAdminPage() {
                             Service Type
                           </th>
                           <th className="py-3 pr-4 font-semibold">
+                            Auditor
+                          </th>
+                          <th className="py-3 pr-4 font-semibold">
                             Submitted At
                           </th>
                           <th className="py-3 pr-4 font-semibold">Status</th>
@@ -719,6 +731,9 @@ export default function AuditSubContractorListAdminPage() {
                             </td>
                             <td className="py-3 pr-4">
                               {audit.serviceType || "—"}
+                            </td>
+                            <td className="py-3 pr-4">
+                              <span className="text-sky-200">{audit.auditorName || "—"}</span>
                             </td>
                             <td className="py-3 pr-4">
                               {formatDate(audit.updatedAt)}

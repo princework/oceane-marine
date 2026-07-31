@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQhseSidebar } from "../QhseSidebarContext";
+import { useQhseRole } from "@/hooks/useQhseRole";
 
 const sidebarTabs = [
   {
@@ -105,6 +106,23 @@ const sidebarTabs = [
     ],
   },
   {
+    key: "master",
+    label: "Master Database",
+    adminOnly: true,
+    submodules: [
+      {
+        key: "vendor-register",
+        label: "Vendor Register",
+        href: "/qhse/master/vendor-register",
+      },
+      {
+        key: "auditor-register",
+        label: "Auditor Register",
+        href: "/qhse/master/auditor-register",
+      },
+    ],
+  },
+  {
     key: "audits",
     label: "Audits & inspection planner",
     href: "/qhse/audit-inspection-planner/form",
@@ -128,6 +146,8 @@ const sidebarTabs = [
 
 export default function QhseSidebar() {
   const { isSidebarOpen, setIsSidebarOpen } = useQhseSidebar();
+  const { isQhseAdmin } = useQhseRole();
+  const visibleSidebarTabs = sidebarTabs.filter((tab) => !tab.adminOnly || isQhseAdmin);
   const [activeTab, setActiveTab] = useState("training");
   const [expandedNestedSubmodules, setExpandedNestedSubmodules] = useState(
     new Set()
@@ -138,20 +158,31 @@ export default function QhseSidebar() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Derive active tab from current route and auto-expand nested submodules
+  // Derive active tab from current route, auto-expand nested submodules, and
+  // scroll it into view — all in one effect. Splitting the scroll into a
+  // second effect keyed on `activeTab` caused a race on every navigation:
+  // since this sidebar remounts fresh per page (it's not in the shared
+  // layout), that second effect fired once with the stale initial "training"
+  // tab before this effect's setState had flushed, smooth-scrolling there,
+  // then immediately again to the real tab — two competing smooth-scrolls
+  // that left the sidebar stuck showing the wrong tabs. Deriving the tab
+  // into a local variable and scrolling to it directly here avoids the
+  // stale intermediate scroll entirely.
   useEffect(() => {
+    let nextTab = null;
+
     if (pathname.startsWith("/qhse/controlled-document-register")) {
-      setActiveTab("controlled-document-register");
+      nextTab = "controlled-document-register";
     } else if (pathname.startsWith("/qhse/defects-list")) {
-      setActiveTab("defects");
+      nextTab = "defects";
     } else if (pathname.startsWith("/qhse/training")) {
-      setActiveTab("training");
+      nextTab = "training";
     } else if (pathname.startsWith("/qhse/near-miss")) {
-      setActiveTab("near-miss");
+      nextTab = "near-miss";
     } else if (pathname.startsWith("/qhse/moc")) {
-      setActiveTab("moc");
+      nextTab = "moc";
     } else if (pathname.startsWith("/qhse/due-diligence-subconstructor")) {
-      setActiveTab("due-diligence");
+      nextTab = "due-diligence";
       // Auto-expand the nested submodule if we're on one of its pages
       if (
         pathname.startsWith("/qhse/due-diligence-subconstructor/vendors")
@@ -177,13 +208,13 @@ export default function QhseSidebar() {
         );
       }
     } else if (pathname.startsWith("/qhse/drills")) {
-      setActiveTab("drills");
+      nextTab = "drills";
     } else if (pathname.startsWith("/qhse/best-practice")) {
-      setActiveTab("best-practices");
+      nextTab = "best-practices";
     } else if (pathname.startsWith("/qhse/poac/cross-competency")) {
-      setActiveTab("poac");
+      nextTab = "poac";
     } else if (pathname.startsWith("/qhse/forms-checklist")) {
-      setActiveTab("forms");
+      nextTab = "forms";
       // Auto-expand the nested submodule if we're on one of its pages
       if (pathname.startsWith("/qhse/forms-checklist/base-audit")) {
         setExpandedNestedSubmodules(
@@ -224,25 +255,34 @@ export default function QhseSidebar() {
           (prev) => new Set([...prev, "new-base-setup-checklist"])
         );
       }
+    } else if (pathname.startsWith("/qhse/master")) {
+      nextTab = "master";
     } else if (pathname.startsWith("/qhse/audit-inspection-planner")) {
-      setActiveTab("audits");
+      nextTab = "audits";
     } else if (pathname.startsWith("/qhse/risk-assessment")) {
-      setActiveTab("risk-assessment-main");
+      nextTab = "risk-assessment-main";
     } else if (pathname.startsWith("/qhse/archive")) {
-      setActiveTab("archive");
+      nextTab = "archive";
     }
-  }, [pathname]);
 
-  // Keep the active sidebar item in view when route or activeTab changes
-  useEffect(() => {
-    if (!activeTab || !navScrollRef.current) return;
-    const el = navScrollRef.current.querySelector(
-      `[data-sidebar-tab="${activeTab}"]`
-    );
-    if (el) {
-      el.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    }
-  }, [activeTab, pathname]);
+    if (!nextTab) return;
+    setActiveTab(nextTab);
+
+    const frame = requestAnimationFrame(() => {
+      const container = navScrollRef.current;
+      if (!container) return;
+      // Prefer the specific active submodule/leaf marker over the parent
+      // tab's own container — for tabs with submodules (e.g. Due diligence),
+      // scrolling the whole expanded cluster into view can leave the actual
+      // active submodule cut off below the fold if the cluster is taller
+      // than the visible sidebar area.
+      const target =
+        container.querySelector('[data-sidebar-active="true"]') ||
+        container.querySelector(`[data-sidebar-tab="${nextTab}"]`);
+      target?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [pathname]);
 
   const handleModuleClick = (tab) => {
     setActiveTab(tab.key);
@@ -331,7 +371,7 @@ export default function QhseSidebar() {
             className="flex-1 overflow-y-auto overflow-x-hidden p-4 [scrollbar-width:thin] [scrollbar-color:transparent_transparent] hover:[scrollbar-color:rgba(255,255,255,0.2)_transparent] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent transition-all duration-200"
           >
             <div className="space-y-1.5">
-              {sidebarTabs.map((tab) => (
+              {visibleSidebarTabs.map((tab) => (
                 <div
                   key={tab.key}
                   className="space-y-1"
@@ -341,6 +381,7 @@ export default function QhseSidebar() {
                     <Link
                       href={tab.href}
                       data-sidebar-tab={tab.key}
+                      data-sidebar-active={activeTab === tab.key ? "true" : undefined}
                       className={`group flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-all duration-200 ${
                         activeTab === tab.key
                           ? "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/40 scale-[1.02]"
@@ -500,6 +541,7 @@ export default function QhseSidebar() {
                                         <Link
                                           key={nested.key}
                                           href={getSubmoduleLink(nested.href)}
+                                          data-sidebar-active={isActiveNested ? "true" : undefined}
                                           className={`block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 border ${
                                             isActiveNested
                                               ? "bg-white/20 text-white border-orange-400/50 shadow-md"
@@ -519,6 +561,7 @@ export default function QhseSidebar() {
                             ) : (
                               <Link
                                 href={getSubmoduleLink(sub.href)}
+                                data-sidebar-active={isActiveSub ? "true" : undefined}
                                 className={`block w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 border ${
                                   isActiveSub
                                     ? "bg-white/20 text-white border-orange-400/50 shadow-md"

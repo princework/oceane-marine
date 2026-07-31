@@ -1,10 +1,29 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import SubContractorAudit from "@/lib/mongodb/models/qhse-due-diligence/SubContractorAudit";
+import MasterAuditor from "@/lib/mongodb/models/MasterAuditor";
 import { findWithMongoIdCursor } from "@/lib/qhse/mongoIdCursorPagination";
 
 function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Attaches { auditorName, auditorEmail } to each record from its auditorId. */
+async function withAuditorNames(records) {
+  const ids = [...new Set(records.map((r) => r.auditorId).filter(Boolean).map(String))];
+  if (ids.length === 0) return records;
+  const auditors = await MasterAuditor.find({ _id: { $in: ids } })
+    .select("name email")
+    .lean();
+  const byId = new Map(auditors.map((a) => [String(a._id), a]));
+  return records.map((r) => {
+    const auditor = r.auditorId ? byId.get(String(r.auditorId)) : null;
+    return {
+      ...r,
+      auditorName: auditor?.name || null,
+      auditorEmail: auditor?.email || null,
+    };
+  });
 }
 
 export async function GET(req) {
@@ -48,12 +67,13 @@ export async function GET(req) {
         filter,
         { cursor, limit }
       );
+      const enrichedItems = await withAuditorNames(items);
 
       return NextResponse.json({
         success: true,
-        data: items,
+        data: enrichedItems,
         hasNext,
-        subContractorAudits: items,
+        subContractorAudits: enrichedItems,
       });
     }
 
@@ -66,7 +86,9 @@ export async function GET(req) {
       getters: true,
       virtuals: false,
     });
-    return NextResponse.json({ subContractorAudits });
+    return NextResponse.json({
+      subContractorAudits: await withAuditorNames(subContractorAudits),
+    });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

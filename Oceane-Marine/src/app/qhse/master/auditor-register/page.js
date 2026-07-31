@@ -1,11 +1,11 @@
 import { Suspense } from "react";
-import TransferLocationQuestReviewPage from "./TransferLocationQuestReviewPage";
+import AuditorRegisterPage from "./AuditorRegisterPage";
 
 import QhseSuspenseFallback from "@/app/qhse/components/QhseSuspenseFallback";
-export default function TransferLocationQuestReviewPageWrapper() {
+export default function AuditorRegisterPageWrapper() {
   return (
     <Suspense fallback={<QhseSuspenseFallback />}>
-        <TransferLocationQuestReviewPage />
+        <AuditorRegisterPage />
       </Suspense>
   );
 }

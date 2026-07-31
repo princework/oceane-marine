@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import MasterVendor from "@/lib/mongodb/models/MasterVendor";
+import MasterAuditor from "@/lib/mongodb/models/MasterAuditor";
 import SupplierDueDiligence from "@/lib/mongodb/models/qhse-due-diligence/SupplierDueDiligence";
 import SubContractorAudit from "@/lib/mongodb/models/qhse-due-diligence/SubContractorAudit";
 import VendorSupplierApproval from "@/lib/mongodb/models/qhse-form-checklist/VendorSupplierApproval";
@@ -49,6 +50,14 @@ export async function GET() {
     const stage2Map = latestByVendor(stage2Records);
     const stage3Map = latestByVendor(stage3Records);
 
+    const auditorIds = [
+      ...new Set(vendors.map((v) => v.auditSentAuditorId).filter(Boolean).map(String)),
+    ];
+    const auditors = auditorIds.length
+      ? await MasterAuditor.find({ _id: { $in: auditorIds } }).select("name").lean()
+      : [];
+    const auditorNameById = new Map(auditors.map((a) => [String(a._id), a.name]));
+
     const data = vendors.map((vendor) => {
       const key = String(vendor._id);
       const stage1 = stage1Map.get(key) || null;
@@ -58,6 +67,11 @@ export async function GET() {
         vendorId: key,
         name: vendor.name,
         email: vendor.email,
+        auditSentAt: vendor.auditSentAt || null,
+        auditSentTo: vendor.auditSentTo || null,
+        auditSentAuditorName: vendor.auditSentAuditorId
+          ? auditorNameById.get(String(vendor.auditSentAuditorId)) || null
+          : null,
         stage1: stage1 && {
           recordId: String(stage1._id),
           status: stage1.status,

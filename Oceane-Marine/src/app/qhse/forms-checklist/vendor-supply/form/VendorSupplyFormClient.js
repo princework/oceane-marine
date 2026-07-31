@@ -104,6 +104,9 @@ function VendorSupplyFormContent() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [currentId, setCurrentId] = useState(null);
+  const [eligibleVendors, setEligibleVendors] = useState([]);
+  const [loadingVendors, setLoadingVendors] = useState(false);
+  const [selectedVendorId, setSelectedVendorId] = useState(vendorId || "");
   /** Optional signature images (base64 data URLs) */
   const [requestedBySignatureImage, setRequestedBySignatureImage] = useState(null);
   const [forAccountsSignSignatureImage, setForAccountsSignSignatureImage] = useState(null);
@@ -117,23 +120,44 @@ function VendorSupplyFormContent() {
     }
   }, [error, success]);
 
-  // Prefill vendor name from the master record when opened from the Vendor Onboarding dashboard
+  // Load vendors eligible for Stage 3 (Stage 2 Sub-Contractor Audit Approved,
+  // not yet rated) for the picker. Editing an existing draft locks the vendor
+  // in place, so the picker isn't needed there.
   useEffect(() => {
-    if (!vendorId || editId) return;
-    const loadVendor = async () => {
+    if (editId) return;
+    const loadEligibleVendors = async () => {
+      setLoadingVendors(true);
       try {
-        const res = await fetch("/api/master/vendors/list");
+        const res = await fetch("/api/qhse/due-diligence/vendor-pipeline");
         const data = await res.json();
-        const vendor = (data.vendors || []).find((v) => String(v._id) === String(vendorId));
-        if (vendor) {
-          setForm((prev) => ({ ...prev, vendorName: vendor.name }));
+        if (res.ok && data.success) {
+          const eligible = (data.data || []).filter(
+            (v) => v.stage2?.status === "Approved" && !v.stage3
+          );
+          setEligibleVendors(eligible);
+          if (vendorId) {
+            const match = eligible.find((v) => v.vendorId === vendorId);
+            if (match) {
+              setSelectedVendorId(match.vendorId);
+              setForm((prev) => ({ ...prev, vendorName: match.name }));
+            }
+          }
         }
       } catch {
-        // non-fatal — vendor name stays blank, user can type it
+        // non-fatal — dropdown stays empty, user can't submit without a vendor
+      } finally {
+        setLoadingVendors(false);
       }
     };
-    loadVendor();
-  }, [vendorId, editId]);
+    loadEligibleVendors();
+  }, [editId, vendorId]);
+
+  const handleVendorSelect = (e) => {
+    const id = e.target.value;
+    setSelectedVendorId(id);
+    const vendor = eligibleVendors.find((v) => v.vendorId === id);
+    setForm((prev) => ({ ...prev, vendorName: vendor?.name || "" }));
+  };
 
   // Load existing draft when editing
   useEffect(() => {
@@ -267,8 +291,8 @@ function VendorSupplyFormContent() {
   };
 
   const validateForm = () => {
-    if (!editId && !vendorId) {
-      return "No vendor selected. Open this form from the Vendor Onboarding dashboard so it knows which vendor this rating is for.";
+    if (!editId && !selectedVendorId) {
+      return "Please select a vendor that has cleared Stage 2 (Sub-Contractor Audit).";
     }
     if (!form.vendorName.trim()) {
       return "Please enter vendor name";
@@ -327,7 +351,7 @@ function VendorSupplyFormContent() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          vendorId,
+          vendorId: selectedVendorId,
           vendorName: form.vendorName.trim(),
           vendorAddress: form.vendorAddress.trim(),
           date: form.date,
@@ -391,7 +415,7 @@ function VendorSupplyFormContent() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          vendorId,
+          vendorId: selectedVendorId,
           vendorName: form.vendorName.trim(),
           vendorAddress: form.vendorAddress.trim(),
           date: form.date,
@@ -544,15 +568,46 @@ function VendorSupplyFormContent() {
                   >
                     Vendor Name
                   </label>
-                  <input
-                    id="vendorName"
-                    type="text"
-                    name="vendorName"
-                    value={form.vendorName}
-                    onChange={handleBasicChange}
-                    className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-sky-500/60 h-[42px]"
-                    placeholder="Enter vendor / supplier / contractor name"
-                  />
+                  {editId ? (
+                    <input
+                      id="vendorName"
+                      type="text"
+                      name="vendorName"
+                      value={form.vendorName}
+                      readOnly
+                      className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2.5 text-sm text-white/70 h-[42px] cursor-not-allowed"
+                    />
+                  ) : (
+                    <>
+                      <select
+                        id="vendorName"
+                        value={selectedVendorId}
+                        onChange={handleVendorSelect}
+                        className="w-full rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2.5 text-sm text-white focus:outline-none focus:border-sky-500/60 h-[42px]"
+                      >
+                        <option value="">
+                          {loadingVendors ? "Loading vendors…" : "Select vendor…"}
+                        </option>
+                        {eligibleVendors.map((v) => (
+                          <option key={v.vendorId} value={v.vendorId}>
+                            {v.name}
+                          </option>
+                        ))}
+                      </select>
+                      {!loadingVendors && eligibleVendors.length === 0 && (
+                        <p className="text-[11px] text-amber-300">
+                          No vendors have cleared Stage 2 (Sub-Contractor Audit) yet. Complete the{" "}
+                          <Link
+                            href="/qhse/due-diligence-subconstructor/vendors"
+                            className="underline hover:text-amber-200"
+                          >
+                            Vendor Onboarding
+                          </Link>{" "}
+                          pipeline first.
+                        </p>
+                      )}
+                    </>
+                  )}
                 </div>
                 <div className="space-y-2 flex flex-col">
                   <label
