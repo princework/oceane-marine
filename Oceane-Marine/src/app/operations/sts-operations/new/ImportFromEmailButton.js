@@ -6,6 +6,18 @@ import { readJsonFromResponse } from "@/lib/utils/readJsonFromResponse";
 
 const ENDPOINT = "/api/operations/sts/sync-email";
 
+const DEFAULT_WINDOW_LABEL = "30 days";
+const WINDOW_UNITS = { d: "day", m: "month", y: "year" };
+
+/** Gmail search window as prose: "30d" → "30 days", "1y" → "1 year". */
+function describeWindow(value) {
+  const match = /^(\d+)([dmy])$/.exec(String(value || "").trim().toLowerCase());
+  if (!match) return DEFAULT_WINDOW_LABEL;
+
+  const count = Number(match[1]);
+  return `${count} ${WINDOW_UNITS[match[2]]}${count === 1 ? "" : "s"}`;
+}
+
 function formatReceived(iso) {
   if (!iso) return "";
   const date = new Date(iso);
@@ -35,6 +47,8 @@ export default function ImportFromEmailButton({ className = "" }) {
   const [loading, setLoading] = useState(false);
   const [importingId, setImportingId] = useState(null);
   const [error, setError] = useState("");
+  const [windowLabel, setWindowLabel] = useState(DEFAULT_WINDOW_LABEL);
+  const [attachmentsOnly, setAttachmentsOnly] = useState(false);
 
   const loadMessages = useCallback(async () => {
     setLoading(true);
@@ -44,6 +58,8 @@ export default function ImportFromEmailButton({ className = "" }) {
       const data = await readJsonFromResponse(response);
       if (!response.ok) throw new Error(data.error || "Could not read the operations mailbox.");
       setMessages(Array.isArray(data.messages) ? data.messages : []);
+      setWindowLabel(describeWindow(data.searchWindow));
+      setAttachmentsOnly(Boolean(data.requiresAttachment));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not read the operations mailbox.");
       setMessages([]);
@@ -109,7 +125,8 @@ export default function ImportFromEmailButton({ className = "" }) {
               <div className="min-w-0">
                 <h2 className="text-base font-semibold text-white">Import from Email</h2>
                 <p className="mt-0.5 text-xs text-white/50">
-                  Client emails from the last 30 days with attachments. Importing creates a draft
+                  Client emails from the last {windowLabel}
+                  {attachmentsOnly ? " with attachments" : ""}. Importing creates a draft
                   operation for you to review — nothing is submitted.
                 </p>
               </div>
@@ -152,8 +169,17 @@ export default function ImportFromEmailButton({ className = "" }) {
                             {message.subject || "(no subject)"}
                           </span>
                           {message.synced && (
-                            <span className="shrink-0 rounded-full border border-emerald-400/30 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
-                              Synced
+                            <span
+                              title={
+                                message.operationRef
+                                  ? `Already imported as operation ${message.operationRef}`
+                                  : "Already imported"
+                              }
+                              className="shrink-0 rounded-full border border-emerald-400/30 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300"
+                            >
+                              {message.operationRef
+                                ? `Imported · ${message.operationRef}`
+                                : "Imported"}
                             </span>
                           )}
                         </div>

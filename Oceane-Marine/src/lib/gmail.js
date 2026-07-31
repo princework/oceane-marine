@@ -9,6 +9,10 @@ import { auth as googleAuth, gmail as gmailApi } from "@googleapis/gmail";
 
 const DEFAULT_SYNCED_LABEL = "STS/Synced";
 const DEFAULT_USER_ID = "me";
+const DEFAULT_SEARCH_WINDOW = "30d";
+
+/** Gmail's `newer_than:` argument — a positive count followed by d, m or y. */
+const SEARCH_WINDOW_PATTERN = /^[1-9]\d*[dmy]$/;
 
 /** Thrown when the mailbox needs reconnecting; carries an operator-facing message. */
 export class GmailAuthError extends Error {
@@ -32,6 +36,26 @@ export class GmailConfigError extends Error {
 
 export function syncedLabelName() {
   return process.env.GMAIL_SYNCED_LABEL || DEFAULT_SYNCED_LABEL;
+}
+
+/**
+ * How far back the mailbox search reaches, as a Gmail `newer_than:` value.
+ *
+ * A malformed value would make Gmail reject the whole query and leave the picker
+ * empty with no obvious cause, so anything unusable falls back to the default.
+ * @returns {string} e.g. "30d", "6m", "1y"
+ */
+export function searchWindow() {
+  const configured = process.env.GMAIL_SEARCH_WINDOW?.trim().toLowerCase();
+  if (!configured) return DEFAULT_SEARCH_WINDOW;
+
+  if (!SEARCH_WINDOW_PATTERN.test(configured)) {
+    console.warn(
+      `Ignoring GMAIL_SEARCH_WINDOW="${configured}" — expected a count and unit such as 30d, 6m or 1y. Using ${DEFAULT_SEARCH_WINDOW}.`
+    );
+    return DEFAULT_SEARCH_WINDOW;
+  }
+  return configured;
 }
 
 function userId() {
@@ -88,31 +112,56 @@ function quoteSearchValue(value) {
 }
 
 /**
+ * Subject terms from GMAIL_SUBJECT_FILTER, already quoted for the query.
+ * Comma-separated terms are OR-ed, e.g. "STS,nomination" → ["STS", "nomination"].
+ */
+function subjectFilterTerms() {
+  return (process.env.GMAIL_SUBJECT_FILTER || "")
+    .split(",")
+    .map((term) => term.trim())
+    .filter(Boolean)
+    .map(quoteSearchValue);
+}
+
+/**
+ * Whether a candidate email must carry an attachment.
+ *
+ * Off by default: a nomination that states the vessels and location in the body
+ * is still worth importing with nothing attached — the operator can add the
+ * documents afterwards. Set GMAIL_REQUIRE_ATTACHMENT=true for the older
+ * attachments-only picker.
+ */
+export function requiresAttachment() {
+  return /^(1|true|yes|on)$/i.test((process.env.GMAIL_REQUIRE_ATTACHMENT || "").trim());
+}
+
+/**
  * Compose the mailbox query. Always scoped — never searches the whole inbox.
  * @param {{ from?: string, excludeSynced?: boolean }} options
  */
 export function buildSearchQuery({ from, excludeSynced = false } = {}) {
-  const parts = ["has:attachment", "newer_than:30d"];
+  /* Gmail returns drafts from the same message list as received mail, so a
+     half-composed reply carrying the original's attachments would otherwise be
+     offered as an importable client nomination. */
+  const parts = ["-in:drafts", `newer_than:${searchWindow()}`];
 
   if (excludeSynced) parts.push(`-label:${quoteSearchValue(syncedLabelName())}`);
 
-  const scopeLabel = process.env.GMAIL_SEARCH_LABEL;
-  if (scopeLabel && scopeLabel.trim()) parts.push(`label:${quoteSearchValue(scopeLabel.trim())}`);
+  const scopeLabel = (process.env.GMAIL_SEARCH_LABEL || "").trim();
+  if (scopeLabel) parts.push(`label:${quoteSearchValue(scopeLabel)}`);
 
-  /* Keeps unrelated mail out of the picker. Comma-separated terms are OR-ed,
-     e.g. GMAIL_SUBJECT_FILTER="STS,nomination" → subject:(STS OR nomination). */
-  const subjectFilter = process.env.GMAIL_SUBJECT_FILTER;
-  if (subjectFilter && subjectFilter.trim()) {
-    const terms = subjectFilter
-      .split(",")
-      .map((term) => term.trim())
-      .filter(Boolean)
-      .map(quoteSearchValue);
-    if (terms.length) parts.push(`subject:(${terms.join(" OR ")})`);
-  }
+  const subjectTerms = subjectFilterTerms();
+  if (subjectTerms.length) parts.push(`subject:(${subjectTerms.join(" OR ")})`);
 
   const sender = typeof from === "string" ? from.trim() : "";
   if (sender) parts.push(`from:${quoteSearchValue(sender)}`);
+
+  /* `has:attachment` used to be the clause that kept this query off the whole
+     mailbox. Now that subject alone decides what is importable, it is only added
+     when asked for — or when nothing else narrows the search, so the picker can
+     never turn into a dump of every recent message. */
+  const narrowed = Boolean(scopeLabel) || subjectTerms.length > 0 || Boolean(sender);
+  if (requiresAttachment() || !narrowed) parts.push("has:attachment");
 
   return parts.join(" ");
 }
@@ -135,7 +184,10 @@ export async function listCandidateMessages({ from, limit = 25 } = {}) {
     const ids = (listRes.data.messages || []).map((m) => m.id);
     if (!ids.length) return [];
 
-    const syncedLabelId = await findLabelId(gmail, syncedLabelName());
+    /* Whether an email has already been imported is answered by the operation
+       records, not by the STS/Synced label — the label stays on the message after
+       the operation is deleted, and can be added or removed by hand in Gmail. The
+       caller joins these ids against `emailImport.messageId`. */
 
     /* "full" rather than "metadata": the metadata format omits payload.parts, so the
        MIME tree would be empty and every message would report zero attachments.
@@ -160,7 +212,6 @@ export async function listCandidateMessages({ from, limit = 25 } = {}) {
         subject: headers.subject || "(no subject)",
         date: msg.internalDate ? new Date(Number(msg.internalDate)).toISOString() : null,
         attachmentCount: countAttachments(msg.payload),
-        synced: Boolean(syncedLabelId && (msg.labelIds || []).includes(syncedLabelId)),
       };
     });
   } catch (error) {
@@ -300,6 +351,9 @@ export async function getMessageDetail(messageId) {
     date: msg.internalDate ? new Date(Number(msg.internalDate)).toISOString() : null,
     bodyText: stripQuotedReply(raw),
     attachments,
+    /* The import route takes a message id straight from the caller, so it needs
+       to re-check what the search query already filters out. */
+    isDraft: (msg.labelIds || []).includes("DRAFT"),
   };
 }
 
