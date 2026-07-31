@@ -6,7 +6,6 @@ import { pdfSafeText } from "@/jobs/services/pdf/shared/pdfSafeText.js";
 import STSEquipmentBaseStock from "@/lib/mongodb/models/qhse-form-checklist/StsEquipmentBaseStockLevel";
 import EquipmentDefect from "@/lib/mongodb/models/qhse-defect/EquipmentDefect";
 import BestPractice from "@/lib/mongodb/models/qhse-best-practices/BestPractice";
-import TargetKpi from "@/lib/mongodb/models/qhse-kpi/TargetKpi";
 import AuditInspectionPlanner from "@/lib/mongodb/models/qhse-audit-inspection/AuditInspectionPlanner";
 
 function formatDate(date) {
@@ -46,13 +45,6 @@ const MODULE_MAP = {
     formCode: "QAF-BP",
     yearField: "createdAt",
     fileName: "Best-Practices",
-  },
-  "target-kpi": {
-    model: TargetKpi,
-    title: "TARGET KPI",
-    formCode: "HSE-001A",
-    yearField: "year",
-    fileName: "Target-KPI",
   },
   "audit-inspection": {
     model: AuditInspectionPlanner,
@@ -308,85 +300,6 @@ async function generateBestPracticeBulkPdf(records, year) {
   return Buffer.from(doc.output("arraybuffer"));
 }
 
-async function generateTargetKpiBulkPdf(records, year) {
-  const jspdfModule = await import("jspdf");
-  const JsPDF = jspdfModule.jsPDF ?? (typeof jspdfModule.default === "function" ? jspdfModule.default : null);
-  const { default: autoTable } = await import("jspdf-autotable");
-
-  const doc = new JsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-
-  const yearLabel = year ? ` - ${year}` : "";
-  const meta = buildStandardMeta({}, "HSE-001A");
-  const headerCtl = createQhsePdfHeaderController({ formTitle: `TARGET KPI${yearLabel}`, meta });
-  const tableMargins = headerCtl.getAutoTableMargins();
-  const m = headerCtl.sideMarginMm;
-
-  const BEIGE = [232, 220, 196];
-  const gridStyles = { fontSize: 7, cellPadding: 1.8, textColor: [30, 30, 30], lineColor: [200, 200, 200], lineWidth: 0.2, overflow: "linebreak" };
-  const headStyles = { fillColor: BEIGE, textColor: [20, 20, 20], fontStyle: "bold", fontSize: 7 };
-
-  if (records.length === 0) {
-    headerCtl.willDrawPage({ doc });
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(10);
-    doc.text("No records found for the selected year.", m, headerCtl.tableTopMm + 5);
-    overlayQhsePageNumbers(doc);
-    return Buffer.from(doc.output("arraybuffer"));
-  }
-
-  let isFirstPage = true;
-
-  for (let idx = 0; idx < records.length; idx++) {
-    const record = records[idx];
-    if (!isFirstPage) doc.addPage();
-    isFirstPage = false;
-
-    headerCtl.willDrawPage({ doc });
-
-    const yr = record.year != null ? String(record.year) : "-";
-    let y = headerCtl.tableTopMm - 4;
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text(`Record ${idx + 1} of ${records.length}  -  ${cellText(record.serialNumber)}  (Year: ${yr})`, m, y);
-    y += 7;
-
-    const rows = Array.isArray(record.rows) ? record.rows : [];
-    const bodyRows = rows.map((row) => [
-      cellText(row.title),
-      cellText(row.targetForYear),
-      cellText(row.quarter1),
-      cellText(row.quarter2),
-      cellText(row.quarter3),
-      cellText(row.quarter4),
-      cellText(row.targetsAchieved),
-    ]);
-
-    autoTable(doc, {
-      startY: y,
-      margin: tableMargins,
-      willDrawPage: headerCtl.willDrawPage,
-      head: [["Title", `Targets for ${yr}`, "Quarter 1", "Quarter 2", "Quarter 3", "Quarter 4", "Targets Achieved"]],
-      body: bodyRows,
-      theme: "grid",
-      styles: gridStyles,
-      headStyles,
-      columnStyles: {
-        0: { cellWidth: "auto" },
-        1: { cellWidth: 28, halign: "center" },
-        2: { cellWidth: 22, halign: "center" },
-        3: { cellWidth: 22, halign: "center" },
-        4: { cellWidth: 22, halign: "center" },
-        5: { cellWidth: 22, halign: "center" },
-        6: { cellWidth: 28, halign: "center" },
-      },
-    });
-  }
-
-  overlayQhsePageNumbers(doc);
-  return Buffer.from(doc.output("arraybuffer"));
-}
-
 async function generateAuditInspectionBulkPdf(records, year) {
   const jspdfModule = await import("jspdf");
   const JsPDF = jspdfModule.jsPDF ?? (typeof jspdfModule.default === "function" ? jspdfModule.default : null);
@@ -493,7 +406,6 @@ const GENERATORS = {
   "equipment-base-stock": generateEquipmentBaseStockBulkPdf,
   "defects-list": generateDefectsListBulkPdf,
   "best-practice": generateBestPracticeBulkPdf,
-  "target-kpi": generateTargetKpiBulkPdf,
   "audit-inspection": generateAuditInspectionBulkPdf,
 };
 

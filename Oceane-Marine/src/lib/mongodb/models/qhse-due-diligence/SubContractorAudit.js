@@ -17,6 +17,20 @@ const SubContractorAuditSchema = new mongoose.Schema(
       index: true,
     },
 
+    /** Vendor this audit is for — upsert key, matches MasterVendor. */
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "MasterVendor",
+      index: true,
+    },
+
+    /** Internal auditor who was sent the link and filled this audit — request/decision emails go here, not the vendor. */
+    auditorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "MasterAuditor",
+      index: true,
+    },
+
     /** Year-wise document serial: YYYY-NNN (e.g. 2026-001) */
     serialNumber: { type: String },
 
@@ -124,9 +138,30 @@ const SubContractorAuditSchema = new mongoose.Schema(
       index: true,
     },
 
+    rejectionReason: { type: String, trim: true, default: "" },
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
+    },
+
+    /** System-tracked approver identity (distinct from contractorApprovedBy's paper signature block). */
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    approvedAt: {
+      type: Date,
+    },
+
+    rejectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    rejectedAt: {
+      type: Date,
     },
   },
   { timestamps: true }
@@ -163,6 +198,15 @@ SubContractorAuditSchema.pre("save", async function () {
 
 SubContractorAuditSchema.plugin(qhseArchivePlugin);
 SubContractorAuditSchema.plugin(qhseRevisionPlugin);
+
+/**
+ * Next.js dev hot-reload keeps the first-compiled model in memory; schema
+ * field additions (e.g. vendorId) are ignored until the process restarts
+ * unless we drop the cached model before re-registering.
+ */
+if (process.env.NODE_ENV !== "production" && mongoose.models.SubContractorAudit) {
+  delete mongoose.models.SubContractorAudit;
+}
 
 export default mongoose.models.SubContractorAudit ||
   mongoose.model("SubContractorAudit", SubContractorAuditSchema);

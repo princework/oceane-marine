@@ -22,8 +22,6 @@ import BestPractice from "@/lib/mongodb/models/qhse-best-practices/BestPractice.
 import RiskAssessment from "@/lib/mongodb/models/qhse-risk-assessment/RiskAssessment.js";
 import MOCManagementChange from "@/lib/mongodb/models/qhse-moc/mocs-managementChange.js";
 import MOCRiskAssessment from "@/lib/mongodb/models/qhse-moc/mocs-riskAssessment.js";
-import KpiUpload from "@/lib/mongodb/models/qhse-kpi/KpiUpload.js";
-import TargetKpi from "@/lib/mongodb/models/qhse-kpi/TargetKpi.js";
 import PoacCrossCompetency from "@/lib/mongodb/models/qhse-poac/PoacCrossCompetency.js";
 import SupplierDueDiligence from "@/lib/mongodb/models/qhse-due-diligence/SupplierDueDiligence.js";
 import SubContractorAudit from "@/lib/mongodb/models/qhse-due-diligence/SubContractorAudit.js";
@@ -61,8 +59,6 @@ export const QHSE_MODULE_REGISTRY = {
     model: MOCRiskAssessment,
     label: "MOC Risk Assessment",
   },
-  "kpi-upload": { model: KpiUpload, label: "KPI Upload" },
-  "target-kpi": { model: TargetKpi, label: "Target KPI" },
   "poac-cross-competency": {
     model: PoacCrossCompetency,
     label: "POAC Cross Competency",

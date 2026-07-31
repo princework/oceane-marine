@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
-import KpiUpload from "@/lib/mongodb/models/qhse-kpi/KpiUpload";
 import SupplierDueDiligence from "@/lib/mongodb/models/qhse-due-diligence/SupplierDueDiligence";
 import NearMissForms from "@/lib/mongodb/models/qhse-near-miss/NearMiss";
 
@@ -35,25 +34,7 @@ export async function GET(req) {
 
     const dateFilter = buildDateFilter();
 
-    // 1. KPI Stats
-    const kpiMatch = {};
-    if (dateFilter) {
-      kpiMatch.createdAt = dateFilter;
-    }
-    if (year) {
-      kpiMatch.year = Number.parseInt(year, 10);
-    }
-    const kpiStats = await KpiUpload.aggregate([
-      ...(Object.keys(kpiMatch).length > 0 ? [{ $match: kpiMatch }] : []),
-      {
-        $group: {
-          _id: null,
-          completed: { $sum: 1 },
-        },
-      },
-    ]);
-
-    // 2. Due Diligence Stats
+    // 1. Due Diligence Stats
     const ddMatch = {};
     if (dateFilter) {
       ddMatch.createdAt = dateFilter;
@@ -74,7 +55,7 @@ export async function GET(req) {
       },
     ]);
 
-    // 3. Near Miss Stats
+    // 2. Near Miss Stats
     const nmMatch = {};
     if (dateFilter) {
       nmMatch.timeOfIncident = dateFilter;
@@ -102,7 +83,6 @@ export async function GET(req) {
     return NextResponse.json({
       success: true,
       data: {
-        kpi: kpiStats[0] || { completed: 0 },
         dueDiligence: ddStats[0] || { completed: 0, pending: 0, total: 0 },
         nearMiss: nmStats[0] || {
           total: 0,

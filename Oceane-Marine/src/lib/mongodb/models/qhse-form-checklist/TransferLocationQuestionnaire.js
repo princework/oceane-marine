@@ -108,5 +108,9 @@ TransferLocationQuestionnaireSchema.pre("save", async function () {
 TransferLocationQuestionnaireSchema.plugin(qhseArchivePlugin);
 TransferLocationQuestionnaireSchema.plugin(qhseRevisionPlugin);
 
+if (process.env.NODE_ENV !== "production" && mongoose.models.TransferLocationQuestionnaire) {
+  delete mongoose.models.TransferLocationQuestionnaire;
+}
+
 export default mongoose.models.TransferLocationQuestionnaire ||
   mongoose.model("TransferLocationQuestionnaire", TransferLocationQuestionnaireSchema);

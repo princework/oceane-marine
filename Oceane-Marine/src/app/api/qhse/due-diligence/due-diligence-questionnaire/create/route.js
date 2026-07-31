@@ -131,7 +131,16 @@ export async function POST(req) {
         }
       : undefined;
 
-    const record = await SupplierDueDiligence.create({
+    const vendorId = typeof body.vendorId === "string" ? body.vendorId.trim() : "";
+    if (!vendorId) {
+      return NextResponse.json(
+        { error: "vendorId is required" },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    const payload = {
+      vendorId,
       formCode: body.formCode,
       version: body.version,
       supplierDetails: body.supplierDetails,
@@ -144,11 +153,30 @@ export async function POST(req) {
       purchasingDeclaration,
       ...(additionalDocuments.length > 0 && { additionalDocuments }),
       status: "Pending",
-    });
+      rejectionReason: "",
+      approvedBy: null,
+      approvedAt: null,
+      rejectedBy: null,
+      rejectedAt: null,
+    };
+
+    // Upsert by vendorId — a client re-opening the same emailed link after a
+    // rejection overwrites the prior submission and resets status to Pending.
+    const existing = await SupplierDueDiligence.findOne({ vendorId });
+    let record;
+    let isUpdate = false;
+    if (existing) {
+      Object.assign(existing, payload);
+      existing.bumpRevision?.();
+      record = await existing.save();
+      isUpdate = true;
+    } else {
+      record = await SupplierDueDiligence.create(payload);
+    }
 
     return NextResponse.json(
       { success: true, data: record },
-      { status: 201, headers: corsHeaders }
+      { status: isUpdate ? 200 : 201, headers: corsHeaders }
     );
   } catch (error) {
     console.error("[due-diligence-questionnaire create]", error);

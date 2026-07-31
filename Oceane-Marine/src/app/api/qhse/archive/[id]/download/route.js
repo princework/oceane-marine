@@ -8,7 +8,6 @@ import NewBaseSetupChecklist from "@/lib/mongodb/models/qhse-form-checklist/NewB
 import StsTransferLocationQuest from "@/lib/mongodb/models/qhse-form-checklist/StsTransferLocationQuest";
 import RiskAssessment from "@/lib/mongodb/models/qhse-risk-assessment/RiskAssessment";
 import TrainingRecord from "@/lib/mongodb/models/qhse-training/TrainingRecord";
-import KpiUpload from "@/lib/mongodb/models/qhse-kpi/KpiUpload";
 import EquipmentDefect from "@/lib/mongodb/models/qhse-defect/EquipmentDefect";
 import {
   PMS_ACCESSORIES_CERT_ARCHIVE_MODULE,
@@ -233,14 +232,6 @@ async function getFilePathFromOriginal(moduleName, originalId) {
       if (!fp) return null;
       const abs = resolveFilePath(fp);
       if (abs) return { path: abs, name: doc?.attachment?.fileName };
-      return null;
-    }
-    if (mod === "Target KPI" || mod === "KPI") {
-      const doc = await KpiUpload.findById(id).lean();
-      const lp = doc?.localPath;
-      if (!lp) return null;
-      const abs = path.isAbsolute(lp) ? (fs.existsSync(lp) ? lp : null) : resolveFilePath(lp);
-      if (abs) return { path: abs, name: doc?.originalName };
       return null;
     }
     if (mod === "Equipment Defects") {

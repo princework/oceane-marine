@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
-import SupplierDueDiligence from "@/lib/mongodb/models/qhse-due-diligence/SupplierDueDiligence";
+import SubContractorAudit from "@/lib/mongodb/models/qhse-due-diligence/SubContractorAudit";
 import MasterVendor from "@/lib/mongodb/models/MasterVendor";
+import MasterAuditor from "@/lib/mongodb/models/MasterAuditor";
 import { assertQhsePermission } from "@/lib/auth/qhseGuard";
 import { notifyEdit } from "@/lib/notifications/moduleNotify";
 import { sendResendEmail } from "@/lib/services/email/sendResendEmail";
 import { buildVendorPipelineDecisionEmail } from "@/lib/services/email/templates/QHSE/vendorPipelineDecision";
 
-const FORM_LABEL = "Supplier Due Diligence Questionnaire";
+const FORM_LABEL = "Due Diligence Subcontractor Audit";
 
 export async function PUT(req, { params }) {
   const guard = await assertQhsePermission("canApprove");
@@ -17,10 +18,10 @@ export async function PUT(req, { params }) {
 
   try {
     const { id } = await params;
-    const record = await SupplierDueDiligence.findById(id);
+    const record = await SubContractorAudit.findById(id);
 
     if (!record) {
-      return NextResponse.json({ error: "Record not found" }, { status: 404 });
+      return NextResponse.json({ error: "Sub contractor audit not found" }, { status: 404 });
     }
 
     if (record.status !== "Pending") {
@@ -38,24 +39,30 @@ export async function PUT(req, { params }) {
     record.rejectedAt = null;
     await record.save();
 
-    void notifyEdit("QHSE", "due-diligence · due-diligence-questionnaire · approve", id);
+    void notifyEdit("QHSE", "due-diligence · audit-sub-contractor · approve", id);
 
-    if (record.vendorId) {
-      const vendor = await MasterVendor.findById(record.vendorId).select("name email").lean();
-      if (vendor?.email) {
+    if (record.auditorId) {
+      const [auditor, vendor] = await Promise.all([
+        MasterAuditor.findById(record.auditorId).select("name email").lean(),
+        record.vendorId
+          ? MasterVendor.findById(record.vendorId).select("name").lean()
+          : Promise.resolve(null),
+      ]);
+      if (auditor?.email) {
         const built = buildVendorPipelineDecisionEmail({
           decision: "Approved",
           formLabel: FORM_LABEL,
-          vendorName: vendor.name,
+          vendorName: auditor.name,
+          contextLine: vendor?.name ? `Vendor: ${vendor.name}` : undefined,
         });
-        sendResendEmail({ to: vendor.email, subject: built.subject, html: built.html, text: built.text }).catch(
-          (err) => console.error("[dueDiligence] approval email failed:", err?.message || err)
+        sendResendEmail({ to: auditor.email, subject: built.subject, html: built.html, text: built.text }).catch(
+          (err) => console.error("[subContractorAudit] approval email failed:", err?.message || err)
         );
       }
     }
 
     return NextResponse.json(
-      { message: "Supplier Due Diligence approved successfully", data: record },
+      { success: true, message: "Sub contractor audit approved", data: record },
       { status: 200 }
     );
   } catch (error) {

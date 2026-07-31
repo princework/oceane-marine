@@ -26,6 +26,8 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const {
+      vendorId,
+      auditorId,
       version,
       subcontractorName,
       subcontractorAddress,
@@ -43,6 +45,22 @@ export async function POST(req) {
       auditCompletedBy,
       contractorApprovedBy,
     } = body;
+
+    const vendorIdTrimmed = typeof vendorId === "string" ? vendorId.trim() : "";
+    if (!vendorIdTrimmed) {
+      return NextResponse.json(
+        { error: "vendorId is required" },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    const auditorIdTrimmed = typeof auditorId === "string" ? auditorId.trim() : "";
+    if (!auditorIdTrimmed) {
+      return NextResponse.json(
+        { error: "auditorId is required" },
+        { status: 400, headers: corsHeaders }
+      );
+    }
 
     if (
       !subcontractorName?.trim() ||
@@ -137,9 +155,12 @@ export async function POST(req) {
       if (saved) processedContractorApprovedBy.signaturePhoto = saved;
     }
 
-    const newVersion = getNextVersion(version);
+    const existing = await SubContractorAudit.findOne({ vendorId: vendorIdTrimmed });
+    const newVersion = getNextVersion(existing ? existing.revisionNo : version);
 
-    const newSubContractorAudit = await new SubContractorAudit({
+    const payload = {
+      vendorId: vendorIdTrimmed,
+      auditorId: auditorIdTrimmed,
       revisionNo: newVersion,
       revisionDate: new Date(),
       subcontractorName,
@@ -158,15 +179,32 @@ export async function POST(req) {
       auditCompletedBy: processedAuditCompletedBy,
       contractorApprovedBy: processedContractorApprovedBy,
       status: "Pending",
-      createdBy: req.user?.id || null,
-    }).save();
+      rejectionReason: "",
+      approvedBy: null,
+      approvedAt: null,
+      rejectedBy: null,
+      rejectedAt: null,
+    };
+
+    // Upsert by vendorId — re-opening the same auditor link after a rejection
+    // overwrites the prior submission and resets status to Pending.
+    let newSubContractorAudit;
+    if (existing) {
+      Object.assign(existing, payload);
+      newSubContractorAudit = await existing.save();
+    } else {
+      newSubContractorAudit = await new SubContractorAudit({
+        ...payload,
+        createdBy: req.user?.id || null,
+      }).save();
+    }
 
     return NextResponse.json(
       {
-        message: "Sub contractor audit created successfully",
+        message: "Sub contractor audit saved successfully",
         data: newSubContractorAudit,
       },
-      { status: 201, headers: corsHeaders }
+      { status: existing ? 200 : 201, headers: corsHeaders }
     );
   } catch (error) {
     return NextResponse.json(

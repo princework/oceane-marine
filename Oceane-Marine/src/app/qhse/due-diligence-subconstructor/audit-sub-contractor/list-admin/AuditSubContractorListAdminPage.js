@@ -43,6 +43,8 @@ export default function AuditSubContractorListAdminPage() {
   const [selectedAudit, setSelectedAudit] = useState(null);
   const [filterStatus, setFilterStatus] = useState("Pending"); // "Pending", "Approved", "Rejected", "All"
   const [searchTerm, setSearchTerm] = useState("");
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReasonInput, setRejectionReasonInput] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(searchTerm), 400);
@@ -193,16 +195,12 @@ export default function AuditSubContractorListAdminPage() {
     setError(null);
     try {
       const res = await fetch(
-        `/api/qhse/due-diligence/audit-sub-contractor/${auditId}/update`,
+        `/api/qhse/due-diligence/audit-sub-contractor/${auditId}/approve`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            status: "Approved",
-            approvedBy: null, // You can get this from auth context
-          }),
         }
       );
 
@@ -229,33 +227,38 @@ export default function AuditSubContractorListAdminPage() {
     }
   };
 
-  const handleReject = async (auditId) => {
+  const openRejectModal = () => {
     if (!canApprove) return;
-    if (!confirm("Are you sure you want to reject this audit form?")) {
+    setRejectionReasonInput("");
+    setShowRejectModal(true);
+  };
+
+  const handleReject = async () => {
+    if (!canApprove || !selectedAudit) return;
+    const reason = rejectionReasonInput.trim();
+    if (!reason) {
+      setError("Rejection reason is required.");
       return;
     }
 
+    const auditId = selectedAudit._id;
     setRejecting(auditId);
     setError(null);
     try {
       const res = await fetch(
-        `/api/qhse/due-diligence/audit-sub-contractor/${auditId}/update`,
+        `/api/qhse/due-diligence/audit-sub-contractor/${auditId}/reject`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            status: "Rejected",
-            approvedBy: null, // You can get this from auth context
-          }),
+          body: JSON.stringify({ rejectionReason: reason }),
         }
       );
 
       // Check if response is JSON before parsing
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
-        const text = await res.text();
         throw new Error(`Server error: ${res.status} ${res.statusText}`);
       }
 
@@ -265,9 +268,10 @@ export default function AuditSubContractorListAdminPage() {
         throw new Error(data.error || "Failed to reject form");
       }
 
+      setShowRejectModal(false);
+      setRejectionReasonInput("");
       await refreshFirstPage();
       setSelectedAudit(null);
-      alert("Audit form rejected successfully!");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -624,7 +628,7 @@ export default function AuditSubContractorListAdminPage() {
                   <div className="border-t border-white/10 pt-4 flex justify-end gap-3">
                     <button
                       type="button"
-                      onClick={() => handleReject(selectedAudit._id)}
+                      onClick={openRejectModal}
                       disabled={rejecting === selectedAudit._id || approving === selectedAudit._id}
                       className="px-6 py-2.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-semibold uppercase tracking-wider transition disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-red-500/30"
                     >
@@ -802,6 +806,54 @@ export default function AuditSubContractorListAdminPage() {
         </main>
         </QhseListPageContainer>
       </div>
+
+      {showRejectModal && selectedAudit && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="audit-reject-modal-title"
+        >
+          <div className="bg-slate-800 border border-white/15 rounded-xl shadow-xl max-w-md w-full p-6">
+            <h2 id="audit-reject-modal-title" className="text-lg font-semibold text-white mb-4">
+              Reject Sub Contractor Audit
+            </h2>
+            <p className="text-slate-300 text-sm mb-3">
+              {selectedAudit.subcontractorName || selectedAudit.formCode || "—"}
+            </p>
+            <label htmlFor="audit-reject-reason" className="block text-sm text-slate-400 mb-1">
+              Reason <span className="text-red-400">*</span>
+            </label>
+            <textarea
+              id="audit-reject-reason"
+              value={rejectionReasonInput}
+              onChange={(e) => setRejectionReasonInput(e.target.value)}
+              className="w-full rounded-lg border border-white/20 bg-white/5 text-white px-3 py-2 text-sm min-h-[100px] resize-y"
+              placeholder="Enter rejection reason…"
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setRejectionReasonInput("");
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleReject}
+                disabled={rejecting === selectedAudit._id}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-red-500/20 text-red-300 border border-red-400/50 hover:bg-red-500/30 disabled:opacity-50"
+              >
+                {rejecting === selectedAudit._id ? "Rejecting…" : "Reject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
