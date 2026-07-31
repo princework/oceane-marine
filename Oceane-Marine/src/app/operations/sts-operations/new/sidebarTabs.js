@@ -1,7 +1,7 @@
 const ALL_SIDEBAR_TABS = [
   {
     key: "documentation",
-    label: "Documentation",
+    label: "STS Operations",
     href: "/operations/sts-operations/new",
   },
   {

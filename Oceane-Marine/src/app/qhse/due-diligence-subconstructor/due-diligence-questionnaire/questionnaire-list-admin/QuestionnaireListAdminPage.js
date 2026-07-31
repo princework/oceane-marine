@@ -47,6 +47,8 @@ export default function QuestionnaireListAdminPage() {
   const [selectedForm, setSelectedForm] = useState(null);
   const [filterStatus, setFilterStatus] = useState("Pending"); // Pending = Pending Review
   const [searchTerm, setSearchTerm] = useState("");
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReasonInput, setRejectionReasonInput] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(searchTerm), 400);
@@ -122,10 +124,6 @@ export default function QuestionnaireListAdminPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            status: "Approved",
-            approvedBy: null, // You can get this from auth context
-          }),
         }
       );
 
@@ -224,33 +222,37 @@ export default function QuestionnaireListAdminPage() {
     }
   };
 
-  const handleReject = async (formId) => {
+  const openRejectModal = () => {
     if (!canApprove) return;
-    if (!confirm("Are you sure you want to reject this form?")) {
+    setRejectionReasonInput("");
+    setShowRejectModal(true);
+  };
+
+  const handleReject = async () => {
+    if (!canApprove || !selectedForm) return;
+    const reason = rejectionReasonInput.trim();
+    if (!reason) {
+      setError("Rejection reason is required.");
       return;
     }
 
+    const formId = selectedForm._id;
     setRejecting(formId);
     setError(null);
     try {
       const res = await fetch(
-        `/api/qhse/due-diligence/due-diligence-questionnaire/${formId}/approve`,
+        `/api/qhse/due-diligence/due-diligence-questionnaire/${formId}/reject`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            status: "Rejected",
-            approvedBy: null, 
-          }),
+          body: JSON.stringify({ rejectionReason: reason }),
         }
       );
 
-      // Check if response is JSON before parsing
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
-        const text = await res.text();
         throw new Error(`Server error: ${res.status} ${res.statusText}`);
       }
 
@@ -260,9 +262,10 @@ export default function QuestionnaireListAdminPage() {
         throw new Error(data.error || "Failed to reject form");
       }
 
+      setShowRejectModal(false);
+      setRejectionReasonInput("");
       await refreshFirstPage();
       setSelectedForm(null);
-      alert("Form rejected successfully!");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -864,7 +867,7 @@ export default function QuestionnaireListAdminPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleReject(selectedForm._id)}
+                      onClick={openRejectModal}
                       disabled={rejecting === selectedForm._id || approving === selectedForm._id}
                       className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition disabled:opacity-60"
                     >
@@ -1048,6 +1051,54 @@ export default function QuestionnaireListAdminPage() {
         </main>
         </QhseListPageContainer>
       </div>
+
+      {showRejectModal && selectedForm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="dd-reject-modal-title"
+        >
+          <div className="bg-slate-800 border border-white/15 rounded-xl shadow-xl max-w-md w-full p-6">
+            <h2 id="dd-reject-modal-title" className="text-lg font-semibold text-white mb-4">
+              Reject Due Diligence Questionnaire
+            </h2>
+            <p className="text-slate-300 text-sm mb-3">
+              {selectedForm.supplierDetails?.inchargeNameAndCompany || selectedForm.formCode || "—"}
+            </p>
+            <label htmlFor="dd-reject-reason" className="block text-sm text-slate-400 mb-1">
+              Reason <span className="text-red-400">*</span>
+            </label>
+            <textarea
+              id="dd-reject-reason"
+              value={rejectionReasonInput}
+              onChange={(e) => setRejectionReasonInput(e.target.value)}
+              className="w-full rounded-lg border border-white/20 bg-white/5 text-white px-3 py-2 text-sm min-h-[100px] resize-y"
+              placeholder="Enter rejection reason…"
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setRejectionReasonInput("");
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleReject}
+                disabled={rejecting === selectedForm._id}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-red-500/20 text-red-300 border border-red-400/50 hover:bg-red-500/30 disabled:opacity-50"
+              >
+                {rejecting === selectedForm._id ? "Rejecting…" : "Reject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

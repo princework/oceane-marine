@@ -9,6 +9,13 @@ const SupplierDueDiligenceSchema = new mongoose.Schema(
     /** Fixed form code (e.g. QAF-OFD-043) */
     formCode: { type: String, index: true },
 
+    /** Vendor this submission is for — upsert key, matches MasterVendor. */
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "MasterVendor",
+      index: true,
+    },
+
     /** Year-wise serial: YYYY-NNN (e.g. 2026-001) */
     serialNumber: { type: String },
 
@@ -129,6 +136,8 @@ const SupplierDueDiligenceSchema = new mongoose.Schema(
       index: true,
     },
 
+    rejectionReason: { type: String, trim: true, default: "" },
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -140,6 +149,15 @@ const SupplierDueDiligenceSchema = new mongoose.Schema(
     },
 
     approvedAt: {
+      type: Date,
+    },
+
+    rejectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
+    rejectedAt: {
       type: Date,
     },
   },
@@ -165,6 +183,15 @@ SupplierDueDiligenceSchema.pre("save", async function () {
 
 SupplierDueDiligenceSchema.plugin(qhseArchivePlugin);
 SupplierDueDiligenceSchema.plugin(qhseRevisionPlugin);
+
+/**
+ * Next.js dev hot-reload keeps the first-compiled model in memory; schema
+ * field additions (e.g. vendorId) are ignored until the process restarts
+ * unless we drop the cached model before re-registering.
+ */
+if (process.env.NODE_ENV !== "production" && mongoose.models.SupplierDueDiligence) {
+  delete mongoose.models.SupplierDueDiligence;
+}
 
 export default mongoose.models.SupplierDueDiligence ||
   mongoose.model("SupplierDueDiligence", SupplierDueDiligenceSchema);

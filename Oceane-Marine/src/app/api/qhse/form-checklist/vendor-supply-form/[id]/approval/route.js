@@ -2,12 +2,30 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import VendorSupplierApproval from "@/lib/mongodb/models/qhse-form-checklist/VendorSupplierApproval";
 import { notifyEdit, notifyDelete } from "@/lib/notifications/moduleNotify";
+import { assertQhsePermission } from "@/lib/auth/qhseGuard";
 
 export async function PUT(req, { params }) {
+  const guard = await assertQhsePermission("canApprove");
+  if (!guard.ok) return guard.response;
+
   await connectDB();
   try {
     const { id } = await params;
     const body = await req.json();
+
+    if (!["APPROVED", "REJECTED"].includes(body.status)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid status value. Allowed: APPROVED or REJECTED." },
+        { status: 400 }
+      );
+    }
+    if (body.status === "REJECTED" && !body.rejectionReason?.trim()) {
+      return NextResponse.json(
+        { success: false, error: "Rejection reason is required." },
+        { status: 400 }
+      );
+    }
+
     const record = await VendorSupplierApproval.findById(id);
     if (!record) {
       return NextResponse.json(
@@ -25,10 +43,13 @@ export async function PUT(req, { params }) {
 
     record.status = body.status;
     if (body.status === "APPROVED") {
-        record.approvedBy = body.approvedBy;
+      record.approvedBy = guard.user.employeeName || String(guard.user._id);
       record.approvedAt = new Date();
+      record.rejectionReason = "";
     } else if (body.status === "REJECTED") {
-      record.rejectionReason = body.rejectionReason;
+      record.rejectionReason = body.rejectionReason.trim();
+      record.approvedBy = "";
+      record.approvedAt = null;
     }
     await record.save();
     void notifyEdit("QHSE", "form-checklist · vendor-supply-form · approval", id);

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import VendorApproval from "@/lib/mongodb/models/qhse-form-checklist/VendorSupplierApproval";
+import SubContractorAudit from "@/lib/mongodb/models/qhse-due-diligence/SubContractorAudit";
 import { saveBase64AsFile, isBase64DataUrl } from "@/lib/utils/qhse-file-storage";
+import { assertQhsePermission } from "@/lib/auth/qhseGuard";
 
 const isValidRating = (value) =>
   typeof value === "number" && value >= 1 && value <= 4;
@@ -13,6 +15,9 @@ const calculatePercentage = (values) => {
 };
 
 export async function POST(req) {
+  const guard = await assertQhsePermission("canCreate");
+  if (!guard.ok) return guard.response;
+
   await connectDB();
 
   try {
@@ -27,6 +32,19 @@ export async function POST(req) {
     ) {
       return NextResponse.json(
         { error: "Missing required basic fields" },
+        { status: 400 }
+      );
+    }
+
+    const vendorId = typeof body.vendorId === "string" ? body.vendorId.trim() : "";
+    if (!vendorId) {
+      return NextResponse.json({ error: "vendorId is required" }, { status: 400 });
+    }
+
+    const audit = await SubContractorAudit.findOne({ vendorId }).select("status").lean();
+    if (!audit || audit.status !== "Approved") {
+      return NextResponse.json(
+        { error: "This vendor does not have an Approved Sub-Contractor Audit yet." },
         { status: 400 }
       );
     }
@@ -86,6 +104,7 @@ export async function POST(req) {
     const approvedVendorEligible = overallPercentage >= 80;
 
     const record = await VendorApproval.create({
+      vendorId,
       vendorName: body.vendorName,
       vendorAddress: body.vendorAddress,
       date: body.date,

@@ -88,6 +88,11 @@ const sidebarTabs = [
     label: "Due diligence / subcontractor audits",
     submodules: [
       {
+        key: "vendor-onboarding",
+        label: "Vendor Onboarding",
+        href: "/qhse/due-diligence-subconstructor/vendors",
+      },
+      {
         key: "audit-sub-contractor",
         label: "Audit Form - Sub Contractor",
         href: "/qhse/due-diligence-subconstructor/audit-sub-contractor/list-admin",
@@ -108,11 +113,6 @@ const sidebarTabs = [
     key: "poac",
     label: "POAC cross competency",
     href: "/qhse/poac/cross-competency/list",
-  },
-  {
-    key: "kpi",
-    label: "KPI",
-    href: "/qhse/kpi/target-kpi/form",
   },
   {
     key: "risk-assessment-main",
@@ -154,6 +154,12 @@ export default function QhseSidebar() {
       setActiveTab("due-diligence");
       // Auto-expand the nested submodule if we're on one of its pages
       if (
+        pathname.startsWith("/qhse/due-diligence-subconstructor/vendors")
+      ) {
+        setExpandedNestedSubmodules(
+          (prev) => new Set([...prev, "vendor-onboarding"])
+        );
+      } else if (
         pathname.startsWith(
           "/qhse/due-diligence-subconstructor/audit-sub-contractor"
         )
@@ -172,8 +178,6 @@ export default function QhseSidebar() {
       }
     } else if (pathname.startsWith("/qhse/drills")) {
       setActiveTab("drills");
-    } else if (pathname.startsWith("/qhse/kpi")) {
-      setActiveTab("kpi");
     } else if (pathname.startsWith("/qhse/best-practice")) {
       setActiveTab("best-practices");
     } else if (pathname.startsWith("/qhse/poac/cross-competency")) {

@@ -68,6 +68,7 @@ function VendorSupplyFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams?.get("edit");
+  const vendorId = searchParams?.get("vendorId");
   const { canCreate, canEdit, canDelete, canApprove, canDownload, isQhseAdmin } = useQhseRole();
   const canSubmit = editId ? canEdit : canCreate;
 
@@ -115,6 +116,24 @@ function VendorSupplyFormContent() {
       }
     }
   }, [error, success]);
+
+  // Prefill vendor name from the master record when opened from the Vendor Onboarding dashboard
+  useEffect(() => {
+    if (!vendorId || editId) return;
+    const loadVendor = async () => {
+      try {
+        const res = await fetch("/api/master/vendors/list");
+        const data = await res.json();
+        const vendor = (data.vendors || []).find((v) => String(v._id) === String(vendorId));
+        if (vendor) {
+          setForm((prev) => ({ ...prev, vendorName: vendor.name }));
+        }
+      } catch {
+        // non-fatal — vendor name stays blank, user can type it
+      }
+    };
+    loadVendor();
+  }, [vendorId, editId]);
 
   // Load existing draft when editing
   useEffect(() => {
@@ -248,6 +267,9 @@ function VendorSupplyFormContent() {
   };
 
   const validateForm = () => {
+    if (!editId && !vendorId) {
+      return "No vendor selected. Open this form from the Vendor Onboarding dashboard so it knows which vendor this rating is for.";
+    }
     if (!form.vendorName.trim()) {
       return "Please enter vendor name";
     }
@@ -305,6 +327,7 @@ function VendorSupplyFormContent() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          vendorId,
           vendorName: form.vendorName.trim(),
           vendorAddress: form.vendorAddress.trim(),
           date: form.date,
@@ -368,6 +391,7 @@ function VendorSupplyFormContent() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          vendorId,
           vendorName: form.vendorName.trim(),
           vendorAddress: form.vendorAddress.trim(),
           date: form.date,

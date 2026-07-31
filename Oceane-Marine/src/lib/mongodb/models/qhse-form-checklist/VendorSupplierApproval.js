@@ -11,6 +11,13 @@ const VendorApprovalSchema = new mongoose.Schema(
     /** Same as formNo for display consistency with other QHSE forms */
     formCode: { type: String },
 
+    /** Vendor this rating is for — only creatable once Stage 2 (audit) is Approved. */
+    vendorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "MasterVendor",
+      index: true,
+    },
+
     /** Year-wise document serial: YYYY-NNN (e.g. 2026-001) */
     serialNumber: { type: String },
 
@@ -214,6 +221,15 @@ VendorApprovalSchema.pre("save", async function () {
 
 VendorApprovalSchema.plugin(qhseArchivePlugin);
 VendorApprovalSchema.plugin(qhseRevisionPlugin);
+
+/**
+ * Next.js dev hot-reload keeps the first-compiled model in memory; schema
+ * field additions (e.g. vendorId) are ignored until the process restarts
+ * unless we drop the cached model before re-registering.
+ */
+if (process.env.NODE_ENV !== "production" && mongoose.models.VendorApproval) {
+  delete mongoose.models.VendorApproval;
+}
 
 export default mongoose.models.VendorApproval ||
   mongoose.model("VendorApproval", VendorApprovalSchema);

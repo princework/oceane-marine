@@ -14,8 +14,6 @@ import MOCManagementChange from "@/lib/mongodb/models/qhse-moc/mocs-managementCh
 import MOCRiskAssessment from "@/lib/mongodb/models/qhse-moc/mocs-riskAssessment";
 import AuditInspectionPlanner from "@/lib/mongodb/models/qhse-audit-inspection/AuditInspectionPlanner";
 import PoacCrossCompetency from "@/lib/mongodb/models/qhse-poac/PoacCrossCompetency";
-import TargetKpi from "@/lib/mongodb/models/qhse-kpi/TargetKpi";
-import KpiUpload from "@/lib/mongodb/models/qhse-kpi/KpiUpload";
 import EquipmentDefect from "@/lib/mongodb/models/qhse-defect/EquipmentDefect";
 import RiskAssessment from "@/lib/mongodb/models/qhse-risk-assessment/RiskAssessment";
 import TrainingPlan from "@/lib/mongodb/models/qhse-training/TrainingPlan";
@@ -87,8 +85,6 @@ const REGISTER_ENTRIES = [
   { formCode: "QAF-OFD-055", title: "Audit Form - Sub Contractor", model: SubContractorAudit, href: "/qhse/due-diligence-subconstructor/audit-sub-contractor/list-admin", department: "QHSE", revno: "1.1" },
   { formCode: "QAF-OFD-058", title: "Management of Change Form", model: MOCManagementChange, href: "/qhse/moc/management-change/list", department: "QHSE", revno: "1.1" },
   { formCode: "QAF-OFD-058A", title: "MOC Risk Assessment", model: MOCRiskAssessment, href: "/qhse/moc/management-change/list", department: "QHSE" },
-  { formCode: "HSE-001A", title: "Target KPI", model: TargetKpi, href: "/qhse/kpi/target-kpi/list", department: "QHSE" },
-  { formCode: "HSE-001B", title: "KPI (HSE Objectives Upload)", model: KpiUpload, href: "/qhse/kpi/list", department: "QHSE" },
   { formCode: "—", title: "Best Practices", model: BestPractice, href: "/qhse/best-practice/list", department: "QHSE" },
   // Operations – STS Checklist & Forms
   { formCode: "OPS-OFD-001", title: "STS Checklist 1 - Pre Fixture Information", model: STSChecklistOne, href: "/operations/sts-operations/new/form-checklist/sts-checklist/ops-ofd-001/list", department: "Operations" },

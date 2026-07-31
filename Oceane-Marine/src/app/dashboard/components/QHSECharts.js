@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 const ROUTES = {
-  kpi: "/qhse/kpi/list",
   dueDiligence: "/qhse/due-diligence-subconstructor/due-diligence-questionnaire/questionnaire-list-admin",
   nearMiss: "/qhse/near-miss",
   baseAudits: "/qhse/forms-checklist/base-audit/list",
@@ -44,7 +43,6 @@ export default function QHSECharts() {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [stats, setStats] = useState({
-    kpi: { completed: 0 },
     dueDiligence: { completed: 0, pending: 0, total: 0 },
     nearMiss: { total: 0, pendingReview: 0, reviewed: 0 },
   });
@@ -64,13 +62,6 @@ export default function QHSECharts() {
       "Tanjung Bruas": 0,
     },
     total: 0,
-  });
-  // Mooring Masters Feedback by quarter (from KPI quarterly API)
-  const [mooringMastersQuarterly, setMooringMastersQuarterly] = useState({
-    Q1: 0,
-    Q2: 0,
-    Q3: 0,
-    Q4: 0,
   });
   // Best Practices donut: segments from API (by quarter), with colors
   const BEST_PRACTICE_COLORS = [
@@ -100,18 +91,16 @@ export default function QHSECharts() {
       }
 
       // Fetch all dashboard data from backend
-      const [statsRes, quarterlyRes, baseAuditsRes, kpiQuarterlyRes, bestPracticesRes] = await Promise.all([
+      const [statsRes, quarterlyRes, baseAuditsRes, bestPracticesRes] = await Promise.all([
         fetch(`/api/qhse/dashboard/stats?${params.toString()}`),
         fetch(`/api/qhse/dashboard/near-miss-quarterly?year=${selectedYear}`),
         fetch(`/api/qhse/dashboard/base-audits?year=${selectedYear}`),
-        fetch(`/api/qhse/dashboard/kpi-quarterly?year=${selectedYear}`),
         fetch(`/api/qhse/dashboard/best-practices-stats?year=${selectedYear}`),
       ]);
 
       const statsData = await statsRes.json();
       const quarterlyData = await quarterlyRes.json();
       const baseAuditsData = await baseAuditsRes.json();
-      const kpiQuarterlyData = await kpiQuarterlyRes.json();
       const bestPracticesData = await bestPracticesRes.json();
 
       if (!statsRes.ok || !statsData.success) {
@@ -126,10 +115,6 @@ export default function QHSECharts() {
 
       if (baseAuditsData.success) {
         setBaseAudits(baseAuditsData.data);
-      }
-
-      if (kpiQuarterlyData.success && kpiQuarterlyData.data) {
-        setMooringMastersQuarterly(kpiQuarterlyData.data);
       }
 
       if (bestPracticesData.success && bestPracticesData.data) {
@@ -309,45 +294,7 @@ export default function QHSECharts() {
       ) : (
         <>
           {/* Key Metrics Cards - clickable, route to modules */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-            {/* KPI Completed Card */}
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => router.push(ROUTES.kpi)}
-              onKeyDown={(e) => e.key === "Enter" && router.push(ROUTES.kpi)}
-              className="rounded-xl md:rounded-2xl border border-white/20 bg-gradient-to-br from-purple-900/40 via-purple-800/30 to-indigo-900/40 backdrop-blur-md shadow-2xl p-4 md:p-6 hover:shadow-purple-500/20 transition-all hover:scale-[1.02] md:hover:scale-105 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-            >
-              <div className="flex items-center justify-between mb-3 md:mb-4">
-                <div className="p-2 sm:p-3 rounded-xl bg-gradient-to-br from-purple-500/30 to-indigo-500/30 border border-purple-400/30">
-                  <svg
-                    className="w-5 h-5 sm:w-6 sm:h-6 text-purple-300"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                    />
-                  </svg>
-                </div>
-              </div>
-              <h3 className="text-[10px] sm:text-xs uppercase tracking-wider text-purple-300 mb-1 sm:mb-2">
-                KPI Completed
-              </h3>
-              <p className="text-2xl sm:text-3xl font-bold text-white mb-1">
-                {stats.kpi.completed}
-              </p>
-              <p className="text-[10px] sm:text-xs text-slate-300">
-                {selectedMonth
-                  ? `${MONTHS[selectedMonth - 1]} ${selectedYear}`
-                  : `Year ${selectedYear}`}
-              </p>
-            </div>
-
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
             {/* Due Diligence Card */}
             <div
               role="button"
@@ -573,42 +520,8 @@ export default function QHSECharts() {
 
           </div>
 
-          {/* Second Row - Mooring Masters Feedback & Best Practices */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-6 mt-4 md:mt-6">
-            {/* Bar Chart - Mooring Masters Feedback (Q-1 to Q-4) */}
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => router.push(ROUTES.kpi)}
-              onKeyDown={(e) => e.key === "Enter" && router.push(ROUTES.kpi)}
-              className="rounded-xl md:rounded-2xl border border-white/20 bg-gradient-to-br from-slate-900/95 to-slate-800/95 backdrop-blur-md shadow-2xl p-3 sm:p-4 md:p-6 cursor-pointer hover:border-sky-500/40 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500/50"
-            >
-              <h2 className="text-sm sm:text-base md:text-lg font-bold text-white mb-3 md:mb-4">Mooring Masters Feedback</h2>
-              <div className="h-48 sm:h-64 md:h-80 flex items-end justify-around gap-1 sm:gap-2 px-2 sm:px-4">
-                {["Q-1", "Q-2", "Q-3", "Q-4"].map((label, idx) => {
-                  const value = [mooringMastersQuarterly.Q1, mooringMastersQuarterly.Q2, mooringMastersQuarterly.Q3, mooringMastersQuarterly.Q4][idx];
-                  const maxValue = Math.max(mooringMastersQuarterly.Q1, mooringMastersQuarterly.Q2, mooringMastersQuarterly.Q3, mooringMastersQuarterly.Q4, 1);
-                  const height = value > 0 ? Math.max((value / maxValue) * 100, 8) : 2;
-                  return (
-                    <div key={label} className="flex-1 flex flex-col items-center gap-2">
-                      <div className="w-full relative" style={{ height: "100%" }}>
-                        <div
-                          className={`w-full rounded-t-lg relative transition-all ${value > 0 ? "bg-gradient-to-t from-cyan-500 to-cyan-400" : "bg-white/10"}`}
-                          style={{ height: `${height}%`, minHeight: value > 0 ? "8px" : "2px" }}
-                        >
-                          {value > 0 && (
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-cyan-600 to-cyan-500 rounded-t-lg h-full shadow-lg shadow-cyan-500/30" />
-                          )}
-                        </div>
-                        <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-white whitespace-nowrap">{value}</span>
-                      </div>
-                      <span className="text-xs font-semibold text-slate-300">{label}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
+          {/* Second Row - Best Practices */}
+          <div className="grid grid-cols-1 gap-3 md:gap-6 mt-4 md:mt-6">
             {/* Donut Chart - Best Practices (from API: by quarter) */}
             <div
               role="button"
