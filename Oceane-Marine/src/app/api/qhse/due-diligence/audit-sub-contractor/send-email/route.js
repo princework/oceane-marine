@@ -79,6 +79,11 @@ export async function POST(req) {
 
     await sendResendEmail({ to: auditor.email, subject: built.subject, html: built.html, text: built.text });
 
+    vendor.auditSentAt = new Date();
+    vendor.auditSentTo = auditor.email;
+    vendor.auditSentAuditorId = auditor._id;
+    await vendor.save();
+
     return NextResponse.json({
       success: true,
       message: `Audit link sent to ${auditor.name} (${auditor.email}) for vendor ${vendor.name}`,

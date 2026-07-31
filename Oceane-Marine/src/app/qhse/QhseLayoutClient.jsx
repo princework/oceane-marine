@@ -5,6 +5,7 @@ import { useAuthStore } from "@/store/authStore";
 import { QhseSidebarProvider } from "./QhseSidebarContext";
 import { QhseLoadingProvider, useQhseLoading } from "./QhseLoadingContext";
 import QhseLoadingOverlay from "./components/QhseLoadingOverlay";
+import QhseSidebarWrapper from "./components/QhseSidebarWrapper";
 
 const QHSE_BG = "/bg-image/qhse/bg.jpeg";
 
@@ -26,7 +27,10 @@ function QhseLayoutInner({ children }) {
         />
       </div>
       <div className="pointer-events-none fixed inset-0 z-[1] bg-slate-950/70" aria-hidden />
-      <div className="relative z-10">{children}</div>
+      <div className="relative z-10 flex min-h-screen bg-transparent text-white">
+        <QhseSidebarWrapper />
+        {children}
+      </div>
     </div>
   );
 }

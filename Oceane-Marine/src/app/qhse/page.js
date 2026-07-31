@@ -4,7 +4,6 @@ import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import QhseSidebarWrapper from "./components/QhseSidebarWrapper";
 import QhseSuspenseFallback from "./components/QhseSuspenseFallback";
 import { useQhseSidebar } from "./QhseSidebarContext";
 
@@ -48,22 +47,19 @@ function QhsePageContent() {
   const { isSidebarOpen } = useQhseSidebar();
   // Render form inline based on selected module
   return (
-    <div className="min-h-screen bg-transparent text-white flex">
-      <QhseSidebarWrapper />
-      <div className={`flex-1 min-w-0 transition-all duration-300 ${isSidebarOpen ? "md:pl-72" : ""}`}>
-        {selectedModule === "training" && selectedSubmodule === "plan" && (
-          <TrainingPlanForm hideSidebar={true} />
-        )}
-        {selectedModule === "training" && selectedSubmodule === "record" && (
-          <TrainingRecordForm hideSidebar={true} />
-        )}
-        {selectedModule === "drills" && selectedSubmodule === "plan" && (
-          <DrillsPlanForm hideSidebar={true} />
-        )}
-        {selectedModule === "drills" && selectedSubmodule === "report" && (
-          <DrillsReportForm hideSidebar={true} />
-        )}
-      </div>
+    <div className={`flex-1 min-w-0 transition-all duration-300 ${isSidebarOpen ? "md:pl-72" : ""}`}>
+      {selectedModule === "training" && selectedSubmodule === "plan" && (
+        <TrainingPlanForm hideSidebar={true} />
+      )}
+      {selectedModule === "training" && selectedSubmodule === "record" && (
+        <TrainingRecordForm hideSidebar={true} />
+      )}
+      {selectedModule === "drills" && selectedSubmodule === "plan" && (
+        <DrillsPlanForm hideSidebar={true} />
+      )}
+      {selectedModule === "drills" && selectedSubmodule === "report" && (
+        <DrillsReportForm hideSidebar={true} />
+      )}
     </div>
   );
 }

@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import { connectDB } from "@/lib/config/connection";
 import MasterAuditor from "@/lib/mongodb/models/MasterAuditor";
-import { assertQhsePermission } from "@/lib/auth/qhseGuard";
+import { assertQhseAdmin } from "@/lib/auth/qhseGuard";
 
 export async function PATCH(req, { params }) {
-  const guard = await assertQhsePermission("canEdit");
+  const guard = await assertQhseAdmin();
   if (!guard.ok) return guard.response;
 
   const { id } = await params;

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import MasterAuditor from "@/lib/mongodb/models/MasterAuditor";
-import { assertQhsePermission } from "@/lib/auth/qhseGuard";
+import { assertQhseAdmin } from "@/lib/auth/qhseGuard";
 
 export async function POST(req) {
-  const guard = await assertQhsePermission("canCreate");
+  const guard = await assertQhseAdmin();
   if (!guard.ok) return guard.response;
 
   await connectDB();

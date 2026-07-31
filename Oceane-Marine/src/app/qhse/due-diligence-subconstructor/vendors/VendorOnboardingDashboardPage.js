@@ -7,6 +7,19 @@ import { useQhseSidebar } from "../../QhseSidebarContext";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 
+function formatDateTime(value) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function StageBadge({ label, stage }) {
   const status = stage?.status;
   const config = {
@@ -33,21 +46,13 @@ function StageBadge({ label, stage }) {
 export default function VendorOnboardingDashboardPage() {
   const { setPageLoading } = useQhseLoading();
   const { contentClassName } = useQhseSidebar();
-  const { canCreate } = useQhseRole();
+  const { canCreate, isQhseAdmin } = useQhseRole();
 
   const [vendors, setVendors] = useState([]);
   const [auditors, setAuditors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
-
-  const [vendorName, setVendorName] = useState("");
-  const [vendorEmail, setVendorEmail] = useState("");
-  const [adding, setAdding] = useState(false);
-
-  const [auditorName, setAuditorName] = useState("");
-  const [auditorEmail, setAuditorEmail] = useState("");
-  const [addingAuditor, setAddingAuditor] = useState(false);
 
   const [selectedAuditorByVendor, setSelectedAuditorByVendor] = useState({});
 
@@ -86,54 +91,6 @@ export default function VendorOnboardingDashboardPage() {
     loadPipeline();
     loadAuditors();
   }, [loadPipeline, loadAuditors]);
-
-  const handleAddVendor = async (e) => {
-    e.preventDefault();
-    if (!vendorName.trim() || !vendorEmail.trim()) return;
-    setAdding(true);
-    setError(null);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/master/vendors/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: vendorName.trim(), email: vendorEmail.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to add vendor");
-      setVendorName("");
-      setVendorEmail("");
-      await loadPipeline();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setAdding(false);
-    }
-  };
-
-  const handleAddAuditor = async (e) => {
-    e.preventDefault();
-    if (!auditorName.trim() || !auditorEmail.trim()) return;
-    setAddingAuditor(true);
-    setError(null);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/master/auditors/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: auditorName.trim(), email: auditorEmail.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to add auditor");
-      setAuditorName("");
-      setAuditorEmail("");
-      await loadAuditors();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setAddingAuditor(false);
-    }
-  };
 
   const sendStage1 = async (vendorId) => {
     setSendingId(`s1-${vendorId}`);
@@ -223,64 +180,25 @@ export default function VendorOnboardingDashboardPage() {
           </div>
         </header>
 
-        {canCreate && (
-          <div className="grid gap-4 md:grid-cols-2">
-            <section className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-6 space-y-4">
-              <h2 className="text-base font-semibold text-white border-b border-white/10 pb-3">Add Vendor</h2>
-              <form onSubmit={handleAddVendor} className="flex flex-col gap-3">
-                <input
-                  type="text"
-                  value={vendorName}
-                  onChange={(e) => setVendorName(e.target.value)}
-                  placeholder="Vendor name"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:ring-2 focus:ring-sky-500/50"
-                />
-                <input
-                  type="email"
-                  value={vendorEmail}
-                  onChange={(e) => setVendorEmail(e.target.value)}
-                  placeholder="Vendor email"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:ring-2 focus:ring-sky-500/50"
-                />
-                <button
-                  type="submit"
-                  disabled={adding}
-                  className="shrink-0 rounded-xl bg-sky-500 hover:bg-sky-600 px-6 py-3 text-sm font-semibold text-white transition disabled:opacity-50"
-                >
-                  {adding ? "Adding…" : "Add Vendor"}
-                </button>
-              </form>
-            </section>
-
-            <section className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-6 space-y-4">
-              <h2 className="text-base font-semibold text-white border-b border-white/10 pb-3">Add Auditor</h2>
-              <p className="text-xs text-slate-400">
-                Internal staff who visit vendors on-site to fill the Sub-Contractor Audit.
-              </p>
-              <form onSubmit={handleAddAuditor} className="flex flex-col gap-3">
-                <input
-                  type="text"
-                  value={auditorName}
-                  onChange={(e) => setAuditorName(e.target.value)}
-                  placeholder="Auditor name"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:ring-2 focus:ring-sky-500/50"
-                />
-                <input
-                  type="email"
-                  value={auditorEmail}
-                  onChange={(e) => setAuditorEmail(e.target.value)}
-                  placeholder="Auditor email"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/40 outline-none focus:ring-2 focus:ring-sky-500/50"
-                />
-                <button
-                  type="submit"
-                  disabled={addingAuditor}
-                  className="shrink-0 rounded-xl bg-sky-500 hover:bg-sky-600 px-6 py-3 text-sm font-semibold text-white transition disabled:opacity-50"
-                >
-                  {addingAuditor ? "Adding…" : "Add Auditor"}
-                </button>
-              </form>
-            </section>
+        {isQhseAdmin && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-sky-400/20 bg-sky-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-200">
+              Manage vendor and auditor master records in the Master Database module.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/qhse/master/vendor-register"
+                className="rounded-full border border-sky-400/30 bg-sky-500/10 px-4 py-2 text-xs sm:text-sm font-semibold text-sky-300 hover:bg-sky-500/20 transition"
+              >
+                Vendor Register
+              </Link>
+              <Link
+                href="/qhse/master/auditor-register"
+                className="rounded-full border border-sky-400/30 bg-sky-500/10 px-4 py-2 text-xs sm:text-sm font-semibold text-sky-300 hover:bg-sky-500/20 transition"
+              >
+                Auditor Register
+              </Link>
+            </div>
           </div>
         )}
 
@@ -294,7 +212,19 @@ export default function VendorOnboardingDashboardPage() {
         <div className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-6 space-y-4">
           <h2 className="text-base font-semibold text-white border-b border-white/10 pb-3">Vendors</h2>
           {vendors.length === 0 ? (
-            <p className="text-sm text-slate-400">No vendors yet. Add one above.</p>
+            <p className="text-sm text-slate-400">
+              No vendors yet.
+              {isQhseAdmin && (
+                <>
+                  {" "}
+                  Add one in the{" "}
+                  <Link href="/qhse/master/vendor-register" className="text-sky-300 hover:underline">
+                    Vendor Register
+                  </Link>
+                  .
+                </>
+              )}
+            </p>
           ) : (
             <div className="qhse-table-scroll min-w-0 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
               <table className="w-full min-w-[900px] text-sm">
@@ -335,6 +265,12 @@ export default function VendorOnboardingDashboardPage() {
                         </td>
                         <td className="py-3 pr-4">
                           <StageBadge label="Status" stage={v.stage2} />
+                          {v.auditSentAt && (
+                            <p className="mt-1 text-[11px] text-slate-400">
+                              Sent to: <span className="text-sky-300">{v.auditSentAuditorName || v.auditSentTo}</span>
+                              {" "}on {formatDateTime(v.auditSentAt)}
+                            </p>
+                          )}
                           {canCreate && stage1Approved && stage2Actionable && (
                             <div className="mt-2 flex flex-col gap-1.5">
                               <select

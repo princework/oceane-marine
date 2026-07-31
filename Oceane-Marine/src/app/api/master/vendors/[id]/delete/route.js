@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import MasterVendor from "@/lib/mongodb/models/MasterVendor";
-import { assertQhsePermission } from "@/lib/auth/qhseGuard";
+import { assertQhseAdmin } from "@/lib/auth/qhseGuard";
 
 export async function DELETE(req, { params }) {
-  const guard = await assertQhsePermission("canDelete");
+  const guard = await assertQhseAdmin();
   if (!guard.ok) return guard.response;
 
   await connectDB();
