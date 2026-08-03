@@ -3,9 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { getFormConfig, QHSE_FIXED_FORM_CODES } from "@/lib/qhseFormConfig";
 
 export default function SupplierDueDiligenceFormContent() {
+  const searchParams = useSearchParams();
+  const vendorId = searchParams?.get("vendorId")?.trim() || "";
+
   const [form, setForm] = useState({
     supplierDetails: {
       inchargeNameAndCompany: "",
@@ -199,6 +203,7 @@ export default function SupplierDueDiligenceFormContent() {
         sd.paymentTerms === "Other" ? sd.paymentTermsOther : sd.paymentTerms;
 
       const payload = {
+        vendorId,
         formCode,
         version,
         ...form,
@@ -351,6 +356,21 @@ export default function SupplierDueDiligenceFormContent() {
       setSubmitting(false);
     }
   };
+
+  if (!vendorId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="max-w-md text-center bg-gray-800 border border-gray-700 rounded-2xl p-8">
+          <h1 className="text-xl font-bold text-white mb-2">Link not recognized</h1>
+          <p className="text-gray-300 text-sm">
+            This form must be opened from the link emailed to you for a specific
+            vendor (missing vendor reference). Please use the link provided in
+            your email.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">

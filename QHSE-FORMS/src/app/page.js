@@ -7,6 +7,7 @@ const FORMS = [
   { code: "poac-cross-competency", title: "POAC Cross Competency", description: "POAC cross competency evaluation form. View list in main Oceane Marine app." },
   { code: "supplier-questionnaire", title: "Supplier Due Diligence Questionnaire", description: "Supplier evaluation and due diligence questionnaire." },
   { code: "transfer-audit-report", title: "STS Transfer Audit Report", description: "Ship-to-ship transfer audit report for mooring masters." },
+  { code: "transfer-location-quest", title: "Transfer Location Questionnaire", description: "Client-facing STS transfer location questionnaire. Opened via the link emailed for a specific operation — requires an operationRef." },
 ];
 
 export default function Home() {

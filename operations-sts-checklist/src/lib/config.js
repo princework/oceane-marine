@@ -1,6 +1,6 @@
 /**
  * API and form configuration for STS Checklist.
- * Use same-origin proxy to avoid CORS; proxy forwards to NEXT_PUBLIC_API_BASE_URL.
+ * Use same-origin proxy to avoid CORS; proxy forwards to NEXT_PUBLIC_API_BASE_URL1.
  *
  * External forms have no Oceane login; the main app allows anonymous create/read/update
  * (`isPublicOperationsStsChecklistRoute` in Oceane-Marine `src/middleware.js`).
@@ -9,7 +9,7 @@
 export const API_BASE_URL =
   typeof window !== 'undefined'
     ? '/api/sts-proxy'
-    : process.env.NEXT_PUBLIC_API_BASE_URL ||
+    : process.env.NEXT_PUBLIC_API_BASE_URL1 ||
       'http://localhost:3000/api/operations/sts-checklist';
 
 export const FORM_TITLES = {

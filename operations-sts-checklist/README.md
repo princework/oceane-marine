@@ -43,7 +43,7 @@ Mooring master / surveyor at sea
 ┌──────────────────────────────────┐  /api/sts-proxy/<form>/...   ┌──────────────────────────────┐
 │ operations-sts-checklist         │ ───────────────────────────▶ │ Oceane-Marine                │
 │ Next.js, anonymous, public       │  ${STS_API_BASE_URL or       │ /api/operations/sts-checklist│
-│ /OPS-OFD-001 … /OPS-OFD-029      │   NEXT_PUBLIC_API_BASE_URL}  │  …/create  …/update          │
+│ /OPS-OFD-001 … /OPS-OFD-029      │   NEXT_PUBLIC_API_BASE_URL1}  │  …/create  …/update          │
 └──────────────────────────────────┘                              │  …?operationRef=…            │
                                                                   └──────────────────────────────┘
                                                                               │
@@ -210,14 +210,14 @@ To add a new form:
 export const API_BASE_URL =
   typeof window !== 'undefined'
     ? '/api/sts-proxy'
-    : process.env.NEXT_PUBLIC_API_BASE_URL ||
+    : process.env.NEXT_PUBLIC_API_BASE_URL1 ||
       'http://localhost:3000/api/operations/sts-checklist';
 ```
 
 | Context | Resolves to |
 |---------|-------------|
 | Browser | `/api/sts-proxy` (same-origin, CORS-free) |
-| Node (SSR / build) | `process.env.NEXT_PUBLIC_API_BASE_URL` if set, otherwise the dev fallback above |
+| Node (SSR / build) | `process.env.NEXT_PUBLIC_API_BASE_URL1` if set, otherwise the dev fallback above |
 
 `FORM_TITLES` and `FORMS` further down in the same file drive the
 dashboard. Keep both in sync when adding/removing forms.
@@ -237,7 +237,7 @@ Behaviour:
 
 - `getBackendBase()` resolves (in order):
   1. `process.env.STS_API_BASE_URL`
-  2. `process.env.NEXT_PUBLIC_API_BASE_URL`
+  2. `process.env.NEXT_PUBLIC_API_BASE_URL1`
   3. `http://localhost:3000/api/operations/sts-checklist`
 - Strips trailing slashes and appends the dynamic `[...path]`:
   - browser request `/api/sts-proxy/ops-ofd-001/create`
@@ -324,7 +324,7 @@ generates the DOCX/PDF asynchronously via Agenda jobs.
   file part for `multipart/form-data`).
 - Stored signatures returned by the API come back as `/uploads/...`
   paths; `getSignatureUrl()` resolves them against
-  `NEXT_PUBLIC_API_BASE_URL` (origin-only, no `/api`) so the `<img>`
+  `NEXT_PUBLIC_API_BASE_URL1` (origin-only, no `/api`) so the `<img>`
   tag points at the main app's static tree.
 
 The Oceane-Marine side stores them at
@@ -360,8 +360,8 @@ Anything else (list-all, delete, archive) still requires a session.
 
 | Key | Required | Purpose |
 |-----|:-------:|---------|
-| `NEXT_PUBLIC_API_BASE_URL` | yes | Base URL of the Oceane-Marine app **plus** the API prefix used by `config.js`. e.g. `https://main.example.com/api/operations/sts-checklist` (production) or `http://localhost:3000/api/operations/sts-checklist` (dev). Browsers don't actually read this — see below — but it is required server-side and as the `getSignatureUrl` origin. |
-| `STS_API_BASE_URL` | optional | Server-side override that wins over `NEXT_PUBLIC_API_BASE_URL` inside the `/api/sts-proxy/...` route. Useful when the proxy must hit an internal hostname different from the one shared with browsers. |
+| `NEXT_PUBLIC_API_BASE_URL1` | yes | Base URL of the Oceane-Marine app **plus** the API prefix used by `config.js`. e.g. `https://main.example.com/api/operations/sts-checklist` (production) or `http://localhost:3000/api/operations/sts-checklist` (dev). Browsers don't actually read this — see below — but it is required server-side and as the `getSignatureUrl` origin. |
+| `STS_API_BASE_URL` | optional | Server-side override that wins over `NEXT_PUBLIC_API_BASE_URL1` inside the `/api/sts-proxy/...` route. Useful when the proxy must hit an internal hostname different from the one shared with browsers. |
 | `NODE_ENV` | n/a | Standard. Enables the `[sts-proxy] →` console logs in dev. |
 
 > In the browser, the API base is **always** `/api/sts-proxy` — the env
@@ -385,7 +385,7 @@ git clone <repo>
 cd operations-sts-checklist
 npm install
 cat > .env.local <<'EOF'
-NEXT_PUBLIC_API_BASE_URL=http://localhost:3000/api/operations/sts-checklist
+NEXT_PUBLIC_API_BASE_URL1=http://localhost:3000/api/operations/sts-checklist
 EOF
 npm run dev          # http://localhost:3000  (or another port)
 ```
@@ -423,7 +423,7 @@ This app is designed to deploy independently — typically on Vercel.
 3. In project settings → Environment Variables → set:
 
    ```
-   NEXT_PUBLIC_API_BASE_URL = https://<oceane-marine-host>/api/operations/sts-checklist
+   NEXT_PUBLIC_API_BASE_URL1 = https://<oceane-marine-host>/api/operations/sts-checklist
    ```
 
    (no trailing slash.) Optionally set `STS_API_BASE_URL` if the
@@ -444,7 +444,7 @@ This app is designed to deploy independently — typically on Vercel.
   `path` to build the link, so a mismatch there causes a 404 only on
   the dashboard click-through (the URL itself is still valid).
 - **Network → 500 from `/api/sts-proxy/...`** — proxy could not reach
-  the backend. Verify `NEXT_PUBLIC_API_BASE_URL` (or
+  the backend. Verify `NEXT_PUBLIC_API_BASE_URL1` (or
   `STS_API_BASE_URL`) and that Oceane-Marine is running.
 - **403 / redirect to login from main app** — the path you are hitting
   is **not** in `isPublicOperationsStsChecklistRoute`. Add it on the
@@ -452,7 +452,7 @@ This app is designed to deploy independently — typically on Vercel.
 - **`CHECKLIST_NOT_FOUND` on update** — the `operationRef` you opened
   with does not have a record yet. Submit once first to create it.
 - **Signatures show as broken images** — check
-  `NEXT_PUBLIC_API_BASE_URL` (browsers use it inside `getSignatureUrl`
+  `NEXT_PUBLIC_API_BASE_URL1` (browsers use it inside `getSignatureUrl`
   for `/uploads/...` paths).
 
 ---

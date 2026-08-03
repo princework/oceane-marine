@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { getFormConfig, QHSE_FIXED_FORM_CODES } from "@/lib/qhseFormConfig";
 
 const ISO_CERTIFICATIONS = [
@@ -15,6 +16,9 @@ const ISO_CERTIFICATIONS = [
 ];
 
 export default function AuditFormPage() {
+  const searchParams = useSearchParams();
+  const vendorId = searchParams?.get("vendorId")?.trim() || "";
+  const auditorId = searchParams?.get("auditorId")?.trim() || "";
   const config = getFormConfig("audit-form");
   const formCode = config?.formCode || QHSE_FIXED_FORM_CODES.SUB_CONTRACTOR_AUDIT;
   const version = "1.0";
@@ -177,6 +181,8 @@ export default function AuditFormPage() {
 
       const createPath = config?.createPath || "qhse/due-diligence/audit-sub-contractor/create";
       const payload = {
+        vendorId,
+        auditorId,
         formCode: formCode || config?.formCode,
         ...formData,
       };
@@ -235,6 +241,21 @@ export default function AuditFormPage() {
       setSubmitting(false);
     }
   };
+
+  if (!vendorId || !auditorId) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="max-w-md text-center bg-gray-800 border border-gray-700 rounded-2xl p-8">
+          <h1 className="text-xl font-bold text-white mb-2">Link not recognized</h1>
+          <p className="text-gray-300 text-sm">
+            This form must be opened from the link emailed to you as the
+            assigned auditor for a specific vendor (missing vendor or auditor
+            reference). Please use the link provided in your email.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">

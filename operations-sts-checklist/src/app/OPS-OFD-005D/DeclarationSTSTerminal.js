@@ -17,7 +17,7 @@ const getSignatureUrl = (signature) => {
     // If it's a relative path starting with /uploads, convert to absolute URL
     if (signature.startsWith('/uploads') || signature.startsWith('/')) {
         // Get backend base URL from environment variable
-        const backendBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+        const backendBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL1 || 'http://localhost:3000';
         // Remove /api/operations/sts-checklist from backend URL if present to get base URL
         const baseUrl = backendBaseUrl.replace(/\/api\/operations\/sts-checklist\/?$/, '');
         // Ensure base URL doesn't end with /

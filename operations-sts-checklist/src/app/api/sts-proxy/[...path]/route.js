@@ -4,7 +4,7 @@
  *
  * Server-side target (in order):
  *   STS_API_BASE_URL — server-only; use when NEXT_PUBLIC_* is wrong at runtime (e.g. Docker).
- *   NEXT_PUBLIC_API_BASE_URL — shared with client (signature URL helpers, etc.).
+ *   NEXT_PUBLIC_API_BASE_URL1 — shared with client (signature URL helpers, etc.).
  *
  * POST/PUT bodies are buffered and re-sent so the upstream reliably receives the full body
  * (streaming request.body to fetch() is unreliable in some Next/Node setups).
@@ -12,7 +12,7 @@
 function getBackendBase() {
   const raw =
     process.env.STS_API_BASE_URL ||
-    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL1 ||
     'http://localhost:3000/api/operations/sts-checklist';
   return raw.replace(/\/$/, '');
 }
