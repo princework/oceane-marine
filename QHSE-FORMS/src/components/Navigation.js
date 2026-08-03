@@ -11,6 +11,7 @@ const FORMS = [
   { code: "poac-cross-competency", label: "POAC Cross Competency" },
   { code: "supplier-questionnaire", label: "Supplier Questionnaire" },
   { code: "transfer-audit-report", label: "STS Transfer Audit" },
+  { code: "transfer-location-quest", label: "Transfer Location Questionnaire" },
 ];
 
 export default function Navigation() {
@@ -23,8 +24,9 @@ export default function Navigation() {
   const isPoac = pathname === "/forms/poac-cross-competency";
   const isSupplier = pathname === "/forms/supplier-questionnaire";
   const isTransferAudit = pathname === "/forms/transfer-audit-report";
+  const isTransferLocationQuest = pathname === "/forms/transfer-location-quest";
 
-  if (isHseInduction || isAuditForm || isNearMiss || isPoac || isSupplier || isTransferAudit) return null;
+  if (isHseInduction || isAuditForm || isNearMiss || isPoac || isSupplier || isTransferAudit || isTransferLocationQuest) return null;
 
   return (
     <nav className="bg-gray-800 border-b border-gray-700 sticky top-0 z-50">

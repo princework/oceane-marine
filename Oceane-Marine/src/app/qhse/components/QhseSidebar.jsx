@@ -8,11 +8,6 @@ import { useQhseRole } from "@/hooks/useQhseRole";
 
 const sidebarTabs = [
   {
-    key: "controlled-document-register",
-    label: "Controlled document register",
-    href: "/qhse/controlled-document-register",
-  },
-  {
     key: "training",
     label: "Training",
     href: "/qhse/training/create/plan",
@@ -106,6 +101,21 @@ const sidebarTabs = [
     ],
   },
   {
+    key: "audits",
+    label: "Audits & inspection planner",
+    href: "/qhse/audit-inspection-planner/form",
+  },
+  {
+    key: "poac",
+    label: "POAC cross competency",
+    href: "/qhse/poac/cross-competency/list",
+  },
+  {
+    key: "risk-assessment-main",
+    label: "Risk Assessment",
+    href: "/qhse/risk-assessment/form",
+  },
+  {
     key: "master",
     label: "Master Database",
     adminOnly: true,
@@ -121,21 +131,6 @@ const sidebarTabs = [
         href: "/qhse/master/auditor-register",
       },
     ],
-  },
-  {
-    key: "audits",
-    label: "Audits & inspection planner",
-    href: "/qhse/audit-inspection-planner/form",
-  },
-  {
-    key: "poac",
-    label: "POAC cross competency",
-    href: "/qhse/poac/cross-competency/list",
-  },
-  {
-    key: "risk-assessment-main",
-    label: "Risk Assessment",
-    href: "/qhse/risk-assessment/form",
   },
   {
     key: "archive",
@@ -171,9 +166,7 @@ export default function QhseSidebar() {
   useEffect(() => {
     let nextTab = null;
 
-    if (pathname.startsWith("/qhse/controlled-document-register")) {
-      nextTab = "controlled-document-register";
-    } else if (pathname.startsWith("/qhse/defects-list")) {
+    if (pathname.startsWith("/qhse/defects-list")) {
       nextTab = "defects";
     } else if (pathname.startsWith("/qhse/training")) {
       nextTab = "training";

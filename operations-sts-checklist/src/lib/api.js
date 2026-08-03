@@ -31,7 +31,7 @@ export async function submitDeclarationOfSea(body) {
   } catch (err) {
     throw new Error(
       err.message === 'Failed to fetch'
-        ? 'Cannot reach the server. Is the main app (Oceane-Marine) running? Check .env.local NEXT_PUBLIC_API_BASE_URL.'
+        ? 'Cannot reach the server. Is the main app (Oceane-Marine) running? Check .env.local NEXT_PUBLIC_API_BASE_URL1.'
         : err.message
     );
   }
@@ -67,7 +67,7 @@ export async function submitChecklistForm(apiPath, data, signatureFile = null) {
   } catch (err) {
     throw new Error(
       err.message === 'Failed to fetch'
-        ? 'Cannot reach the server. Is the main app (Oceane-Marine) running? Check .env.local NEXT_PUBLIC_API_BASE_URL.'
+        ? 'Cannot reach the server. Is the main app (Oceane-Marine) running? Check .env.local NEXT_PUBLIC_API_BASE_URL1.'
         : err.message
     );
   }

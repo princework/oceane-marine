@@ -55,12 +55,12 @@ src/
 Update the API base URL in `src/lib/config.js`:
 
 ```javascript
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api/operations/sts-checklist';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL1 || 'http://localhost:3000/api/operations/sts-checklist';
 ```
 
 Or set the environment variable:
 ```bash
-NEXT_PUBLIC_API_BASE_URL=http://your-backend-url/api/operations/sts-checklist
+NEXT_PUBLIC_API_BASE_URL1=http://your-backend-url/api/operations/sts-checklist
 ```
 
 ## Available Forms

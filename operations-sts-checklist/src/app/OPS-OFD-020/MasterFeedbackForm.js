@@ -11,7 +11,7 @@ const getSignatureUrl = (signature) => {
         return signature;
     }
     if (signature.startsWith('/uploads') || signature.startsWith('/')) {
-        const backendBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+        const backendBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL1 || 'http://localhost:3000';
         const baseUrl = backendBaseUrl.replace(/\/api\/operations\/sts-checklist\/?$/, '');
         const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
         return `${cleanBaseUrl}${signature}`;
