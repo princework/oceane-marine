@@ -53,13 +53,16 @@ export function groupEquipmentOptions(options = []) {
   return ordered;
 }
 
-/** Defect is the blocking fault; retired is a lifecycle state. */
+/** Defect is the blocking fault; retired is a lifecycle state; in-use is another operation holding it. */
 function tagClassName(tag) {
   if (tag === "DEFECTED") {
     return "border-rose-400/40 bg-rose-500/20 text-rose-200";
   }
   if (tag === "RETIRED") {
     return "border-slate-400/30 bg-slate-500/25 text-slate-300";
+  }
+  if (tag === "IN_USE") {
+    return "border-amber-400/40 bg-amber-500/20 text-amber-200";
   }
   return "border-white/20 bg-white/10 text-white/70";
 }
@@ -94,7 +97,9 @@ export function EquipmentOptionRow({ option, checked, onToggle }) {
         blocked
           ? option.tags.includes("DEFECTED")
             ? "This equipment has an open defect and cannot be used"
-            : "This equipment is retired and cannot be used"
+            : option.tags.includes("IN_USE")
+              ? "This equipment is already in use on another operation"
+              : "This equipment is retired and cannot be used"
           : undefined
       }
     >

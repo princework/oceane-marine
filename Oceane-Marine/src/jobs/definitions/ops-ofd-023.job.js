@@ -51,7 +51,7 @@ export function defineOpsOfd023Job(agenda) {
             }
 
             // ==================== DELETE OLD PHYSICAL FILE ====================
-            const operation = await Operation.findOne({ Operation_Ref_No: operationRef })
+            const operation = await Operation.findOne({ Operation_Ref_No: operationRef, isLatest: true })
                 .select("documents")
                 .lean();
 
@@ -74,7 +74,7 @@ export function defineOpsOfd023Job(agenda) {
             // ==================== REMOVE OLD DOCUMENT ENTRY FROM DB ====================
             if (operation) {
                 await Operation.updateOne(
-                    { Operation_Ref_No: operationRef },
+                    { Operation_Ref_No: operationRef, isLatest: true },
                     { $pull: { documents: { documentType: DOCUMENT_TYPE } } }
                 );
             }
@@ -91,7 +91,7 @@ export function defineOpsOfd023Job(agenda) {
                 };
 
                 await Operation.updateOne(
-                    { Operation_Ref_No: operationRef },
+                    { Operation_Ref_No: operationRef, isLatest: true },
                     { $push: { documents: documentEntry } }
                 );
 
@@ -106,7 +106,7 @@ export function defineOpsOfd023Job(agenda) {
             if (operation) {
                 const updateResult = await Operation.updateOne(
                     {
-                        Operation_Ref_No: operationRef,
+                        Operation_Ref_No: operationRef, isLatest: true,
                         "documents.documentType": DOCUMENT_TYPE,
                     },
                     {
@@ -132,7 +132,7 @@ export function defineOpsOfd023Job(agenda) {
             try {
                 await Operation.updateOne(
                     {
-                        Operation_Ref_No: operationRef,
+                        Operation_Ref_No: operationRef, isLatest: true,
                         "documents.documentType": DOCUMENT_TYPE,
                     },
                     {

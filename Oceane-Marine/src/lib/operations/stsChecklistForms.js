@@ -8,7 +8,7 @@
 
 export const STS_CHECKLIST_EXTERNAL_BASE = (
   process.env.NEXT_PUBLIC_STS_CHECKLIST_FORMS_BASE_URL ??
-  "https://operations.oceanegroup.oceanemarine.com"
+  "https://oceane-marine-utyx.vercel.app"
 ).replace(/\/$/, "");
 
 export function stsChecklistExternalUrl(formNo, operationRef, options) {

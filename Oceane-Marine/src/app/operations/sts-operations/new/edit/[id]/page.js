@@ -406,6 +406,13 @@ export default function EditOperationPage() {
         formData.delete("typeOfCargo");
       }
 
+      // Empty/unselected enum fields must not reach the server as "" — Mongoose
+      // rejects an empty string against an enum even when the field is optional.
+      const operationTypeValue = formData.get("operationType");
+      if (!operationTypeValue || operationTypeValue === "Select") {
+        formData.delete("operationType");
+      }
+
       // Filter out empty vessel type fields
       const vesselTypeCHS = formData.get("vesselTypeCHS");
       if (!vesselTypeCHS || vesselTypeCHS === "Select" || vesselTypeCHS === "") {
@@ -718,12 +725,20 @@ export default function EditOperationPage() {
               <SelectField
                 label="Mooring Master"
                 loading={loadingMasters}
-                options={[
-                  { label: "Select", value: "" },
-                  ...mooringMasters
-                    .filter((m) => m.availabilityStatus === "AVAILABLE")
-                    .map((m) => ({ label: m.name, value: m._id })),
-                ]}
+                options={(() => {
+                  const currentId = operationData?.mooringMaster
+                    ? String(operationData.mooringMaster._id ?? operationData.mooringMaster)
+                    : "";
+                  // Available masters, plus this operation's own current master
+                  // (would otherwise be filtered out as ASSIGNED to itself).
+                  const eligible = mooringMasters.filter(
+                    (m) => m.availabilityStatus === "AVAILABLE" || String(m._id) === currentId
+                  );
+                  return [
+                    { label: "Select", value: "" },
+                    ...eligible.map((m) => ({ label: m.name, value: m._id })),
+                  ];
+                })()}
                 name="mooringMaster"
                 defaultValue={
                   operationData?.mooringMaster

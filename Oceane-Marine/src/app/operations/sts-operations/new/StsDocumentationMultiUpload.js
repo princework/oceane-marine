@@ -3,6 +3,9 @@
 import { useRef, useState, useCallback, useMemo, useEffect } from "react";
 import { downloadFileFromUrl } from "@/lib/utils/sts-file-download";
 
+/** Matches the update route's OPERATOR_MANAGED_DOC_SOURCES — both are removable/replaceable here. */
+const OPERATOR_MANAGED_SOURCES = new Set(["MANUAL_UPLOAD", "EMAIL_IMPORT"]);
+
 const ACCEPT =
   ".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,image/jpeg,image/png";
 
@@ -53,7 +56,7 @@ function mergeFilesIntoInput(input, newFiles) {
  * Form fields emitted:
  *   - documentationFiles[] : brand-new files to add
  *   - documentationKeepEnabled=true (sentinel telling the API to honor keep/remove markers)
- *   - documentationKeepPaths[] : MANUAL_UPLOAD existing paths still to keep
+ *   - documentationKeepPaths[] : operator-managed (MANUAL_UPLOAD/EMAIL_IMPORT) paths still to keep
  *   - documentationReplaceFor[] + documentationReplaceFile[] : zipped pairs (old path → new file)
  *
  * @param {{ existingDocuments?: Array<{ documentType?: string; filePath: string; source?: string; uploadedAt?: string|Date }> }} props
@@ -71,14 +74,14 @@ export default function StsDocumentationMultiUpload({ existingDocuments = [] }) 
   // fresh array literal for `existingDocuments`.
   const existingSignature = useMemo(() => {
     return (existingDocuments || [])
-      .filter((d) => d?.filePath && d.source === "MANUAL_UPLOAD")
+      .filter((d) => d?.filePath && OPERATOR_MANAGED_SOURCES.has(d.source))
       .map((d) => `${d.filePath}::${d.documentType || ""}`)
       .join("|");
   }, [existingDocuments]);
 
   const initialExisting = useMemo(() => {
     const list = (existingDocuments || []).filter(
-      (d) => d?.filePath && d.source === "MANUAL_UPLOAD"
+      (d) => d?.filePath && OPERATOR_MANAGED_SOURCES.has(d.source)
     );
     const seen = new Set();
     return list.filter((d) => {

@@ -55,6 +55,10 @@ export default function TrainingRecordPage({ hideSidebar = false }) {
   const [planLoading, setPlanLoading] = useState(false);
   const [planError, setPlanError] = useState(null);
   const [planDeleting, setPlanDeleting] = useState(false);
+  const [planApproving, setPlanApproving] = useState(false);
+  const [planRejecting, setPlanRejecting] = useState(false);
+  const [showPlanRejectModal, setShowPlanRejectModal] = useState(false);
+  const [planRejectionReason, setPlanRejectionReason] = useState("");
   const [creatingFor, setCreatingFor] = useState(null);
   const [editingRecordId, setEditingRecordId] = useState(null);
 
@@ -115,7 +119,7 @@ export default function TrainingRecordPage({ hideSidebar = false }) {
         const res = await fetch(`/api/qhse/training/plan?year=${year}`);
         const data = await readJsonFromResponse(res);
         if (!res.ok || !data.success) {
-          throw new Error(data.error || "No approved plan for this year");
+          throw new Error(data.error || "Failed to load training plan");
         }
         if (active) setPlan(data.data);
       } catch (err) {
@@ -155,6 +159,50 @@ export default function TrainingRecordPage({ hideSidebar = false }) {
       setPlanError(err.message);
     } finally {
       setPlanDeleting(false);
+    }
+  };
+
+  const handleApprovePlan = async () => {
+    if (!canApprove || !plan?._id) return;
+    if (!window.confirm(`Approve the Training Plan for ${plan.year}?`)) return;
+    setPlanApproving(true);
+    setPlanError(null);
+    try {
+      const res = await fetch(`/api/qhse/training/plan/${plan._id}/approve`, {
+        method: "PUT",
+      });
+      const data = await readJsonFromResponse(res);
+      if (!res.ok || !data.success) throw new Error(data.error || "Failed to approve plan");
+      setPlan(data.data);
+      setMessage("Training plan approved.");
+    } catch (err) {
+      setPlanError(err.message);
+    } finally {
+      setPlanApproving(false);
+    }
+  };
+
+  const submitRejectPlan = async () => {
+    if (!canApprove || !plan?._id) return;
+    if (!planRejectionReason.trim()) return;
+    setPlanRejecting(true);
+    setPlanError(null);
+    try {
+      const res = await fetch(`/api/qhse/training/plan/${plan._id}/reject`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rejectionReason: planRejectionReason.trim() }),
+      });
+      const data = await readJsonFromResponse(res);
+      if (!res.ok || !data.success) throw new Error(data.error || "Failed to reject plan");
+      setPlan(data.data);
+      setMessage("Training plan rejected.");
+      setShowPlanRejectModal(false);
+      setPlanRejectionReason("");
+    } catch (err) {
+      setPlanError(err.message);
+    } finally {
+      setPlanRejecting(false);
     }
   };
 
@@ -594,9 +642,93 @@ export default function TrainingRecordPage({ hideSidebar = false }) {
                     </div>
                   </div>
                 )}
-                <p className="text-xs text-slate-300">
-                  Select a month pair to create record
-                </p>
+
+                {plan && plan.status && plan.status !== "Approved" && (
+                  <div
+                    className={`w-full max-w-md rounded-xl border px-4 py-3 text-left space-y-2 ${
+                      plan.status === "Pending Approval"
+                        ? "border-amber-400/40 bg-amber-500/10"
+                        : "border-red-400/40 bg-red-500/10"
+                    }`}
+                  >
+                    <span
+                      className={`text-xs font-semibold uppercase tracking-wide ${
+                        plan.status === "Pending Approval" ? "text-amber-200" : "text-red-200"
+                      }`}
+                    >
+                      {plan.status === "Pending Approval" ? "Pending your approval" : "Rejected"}
+                    </span>
+                    {plan.status === "Rejected" && plan.rejectionReason && (
+                      <p className="text-xs text-red-100">Reason: {plan.rejectionReason}</p>
+                    )}
+                    {plan.status === "Pending Approval" && canApprove && (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={handleApprovePlan}
+                          disabled={planApproving || planRejecting}
+                          className="text-xs px-3 py-1.5 rounded-lg border border-emerald-400/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20 disabled:opacity-50 transition"
+                        >
+                          {planApproving ? "Approving…" : "Approve plan"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowPlanRejectModal(true)}
+                          disabled={planApproving || planRejecting}
+                          className="text-xs px-3 py-1.5 rounded-lg border border-red-400/40 bg-red-500/10 text-red-200 hover:bg-red-500/20 disabled:opacity-50 transition"
+                        >
+                          Reject plan
+                        </button>
+                      </div>
+                    )}
+                    {plan.status === "Pending Approval" && !canApprove && (
+                      <p className="text-xs text-amber-100">
+                        Waiting for a QHSE approver to review this plan.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {showPlanRejectModal && (
+                  <div className="w-full max-w-md rounded-xl border border-red-400/40 bg-red-950/30 px-4 py-3 text-left space-y-2">
+                    <label className="block text-xs font-semibold text-red-200">
+                      Rejection reason
+                    </label>
+                    <textarea
+                      value={planRejectionReason}
+                      onChange={(e) => setPlanRejectionReason(e.target.value)}
+                      rows={2}
+                      className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-red-400/40"
+                      placeholder="Explain why this plan is being rejected…"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPlanRejectModal(false);
+                          setPlanRejectionReason("");
+                        }}
+                        className="text-xs px-3 py-1.5 rounded-lg border border-white/20 text-slate-200 hover:bg-white/10 transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={submitRejectPlan}
+                        disabled={planRejecting || !planRejectionReason.trim()}
+                        className="text-xs px-3 py-1.5 rounded-lg border border-red-400/50 bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition"
+                      >
+                        {planRejecting ? "Rejecting…" : "Confirm reject"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {plan?.status === "Approved" && (
+                  <p className="text-xs text-slate-300">
+                    Select a month pair to create record
+                  </p>
+                )}
               </div>
             </div>
             {planLoading && (
@@ -613,7 +745,7 @@ export default function TrainingRecordPage({ hideSidebar = false }) {
                 Switch the selector to match.
               </div>
             )}
-            {plan && (
+            {plan && plan.status === "Approved" && (
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {MONTH_PAIRS.map((pair, idx) => {
                   // Match plan item to month pair based on the month of plannedDate

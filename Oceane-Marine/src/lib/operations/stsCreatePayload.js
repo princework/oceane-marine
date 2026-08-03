@@ -48,6 +48,8 @@ export function normalizeEquipmentUsage(usage, operationStartTime) {
         if (!id) return null;
         return {
           equipment: new mongoose.Types.ObjectId(id),
+          equipmentSource: item.equipmentSource === "Accessories" ? "Accessories" : "Equipment",
+          equipmentName: item.equipmentName ? String(item.equipmentName).trim() : "",
           startTime: item.startTime ? new Date(item.startTime) : start,
           status: item.status === "RELEASED" ? "RELEASED" : "IN_USE",
         };

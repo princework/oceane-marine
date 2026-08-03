@@ -70,11 +70,11 @@ export async function getPmsEquipmentOptions({
 
   const [equipment, accessories, locations, defectCounts] = await Promise.all([
     Equipment.find(equipmentQuery)
-      .select("equipmentCode serialCode equipmentName equipmentType status locationName")
+      .select("equipmentCode serialCode equipmentName equipmentType status locationName isInUse")
       .sort({ equipmentName: 1 })
       .lean(),
     Accessories.find({ isDeleted: { $ne: true } })
-      .select("equipmentNo equipmentName category status locationName")
+      .select("equipmentNo equipmentName category status locationName isInUse")
       .sort({ equipmentName: 1 })
       .lean(),
     withLocations
@@ -88,15 +88,18 @@ export async function getPmsEquipmentOptions({
     if (!withDefects) return option;
     const defectCount = defectCounts.get(optionKey(option.source, option.id)) || 0;
     const retired = option.status === "RETIRED";
+    const inUse = Boolean(option.isInUse);
     const tags = [];
     if (defectCount > 0) tags.push("DEFECTED");
     if (retired) tags.push("RETIRED");
+    if (inUse) tags.push("IN_USE");
     return {
       ...option,
       defectCount,
       retired,
+      inUse,
       tags,
-      selectable: defectCount === 0 && !retired,
+      selectable: defectCount === 0 && !retired && !inUse,
     };
   };
 
@@ -111,6 +114,7 @@ export async function getPmsEquipmentOptions({
         type: item.equipmentType || "",
         status: item.status || "",
         locationName: item.locationName || "",
+        isInUse: Boolean(item.isInUse),
         label: joinParts([item.equipmentCode, item.equipmentName, item.serialCode]),
       })
     ),
@@ -124,6 +128,7 @@ export async function getPmsEquipmentOptions({
         type: item.category || "",
         status: item.status || "",
         locationName: item.locationName || "",
+        isInUse: Boolean(item.isInUse),
         label: joinParts([item.equipmentNo, item.equipmentName]),
       })
     ),
@@ -146,7 +151,7 @@ export async function resolveEquipmentIds(ids) {
       .select("equipmentCode serialCode equipmentName status isInUse")
       .lean(),
     Accessories.find({ _id: { $in: unique }, isDeleted: { $ne: true } })
-      .select("equipmentNo equipmentName status")
+      .select("equipmentNo equipmentName status isInUse")
       .lean(),
   ]);
 
@@ -168,7 +173,7 @@ export async function resolveEquipmentIds(ids) {
       name: item.equipmentName || "",
       label: joinParts([item.equipmentNo, item.equipmentName]),
       status: item.status || "",
-      isInUse: false,
+      isInUse: Boolean(item.isInUse),
     });
   }
 

@@ -3,6 +3,7 @@ import { connectDB } from "@/lib/config/connection";
 import StsOperation from "@/lib/mongodb/models/sts-documentation/StsOperation";
 import { saveUploadedFile, subfolderForField } from "@/lib/utils/sts-file-storage";
 import { notifyOperationsEdit, notifyOperationsDelete } from "@/lib/notifications/operationsNotified";
+import { releaseOperationResources } from "@/lib/operations/releaseOperationResources";
 
 /** Document sources the operator may add or remove from the general attachments list. */
 const OPERATOR_MANAGED_DOC_SOURCES = new Set(["MANUAL_UPLOAD", "EMAIL_IMPORT"]);
@@ -80,6 +81,15 @@ export async function PUT(req, { params }) {
 
     /* Form sends equipment IDs as strings; schema expects embedded usage objects. */
     delete body.equipments;
+
+    /* An empty/unselected enum field ("Select" placeholder) must not overwrite
+       the existing value with "" — Mongoose rejects "" against an enum even
+       when the field is optional. Mirrors buildStsCreateDocument's `if (x)
+       doc.x = x` guard on the create path, which this generic `...body`
+       spread doesn't otherwise get. */
+    for (const field of ["operationType", "vesselTypeCHS", "vesselTypeMS", "flowDirection"]) {
+      if (body[field] === "" || body[field] === "Select") delete body[field];
+    }
 
     /* =====================
        HANDLE FILE UPLOADS (CHS/MS vessel documents)
@@ -192,6 +202,20 @@ export async function PUT(req, { params }) {
     const isSubmitted = body.isSubmitted === "true" || body.isSubmitted === true;
     const submittedAt = isSubmitted && body.submittedAt ? new Date(body.submittedAt) : null;
 
+    /* Release the equipment and mooring master locked to this operation back to
+       the pool the moment it completes. Guarded on the actual transition (not
+       just "this save is COMPLETED") so re-saving an already-completed
+       operation never releases a mooring master/equipment that has since been
+       picked up by a different operation. */
+    const becomingCompleted =
+      body.operationStatus === "COMPLETED" && existing.operationStatus !== "COMPLETED";
+    const releasedEquipments = becomingCompleted
+      ? await releaseOperationResources({
+          equipments: existing.equipments,
+          mooringMaster: existing.mooringMaster,
+        })
+      : undefined;
+
     // CREATE NEW VERSION ENTRY
     const newVersion = await StsOperation.create({
       ...existing.toObject(),
@@ -203,6 +227,7 @@ export async function PUT(req, { params }) {
       isSubmitted: isSubmitted || existing.isSubmitted, // Preserve if already submitted
       submittedAt: submittedAt || existing.submittedAt, // Preserve if already submitted
       documents: mergedDocuments,
+      ...(releasedEquipments && { equipments: releasedEquipments }),
     });
 
     void notifyOperationsEdit("STS Operations", id);

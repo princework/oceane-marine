@@ -72,6 +72,18 @@ const AccessoriesSchema = new mongoose.Schema(
       type: Date,
     },
 
+    /**
+     * Locked to a live STS operation right now — separate from `putInUse`
+     * (that one is condition/service status, not an operation-booking flag).
+     * Mirrors Equipment.isInUse: set true on operation create, released back
+     * to false when the operation completes. Excludes the accessory from the
+     * STS "Equipment Used" picker while true.
+     */
+    isInUse: {
+      type: Boolean,
+      default: false,
+    },
+
     // Placement
     placedIn: {
       type: String,

@@ -1,3 +1,5 @@
+import { renderEmailShell, emailInfoRow } from "@/lib/services/email/emailShell";
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -42,41 +44,31 @@ export function buildNearMissSubmissionConfirmationEmail({
     "Thank you for your proactive effort in reporting and contributing to a safer working environment. The report will be reviewed, and any necessary actions will be taken accordingly.",
     "",
     "Best regards,",
-    "Oceane Group",
+    "Helios Tech Labs",
     "",
     "This is an automated email. Please do not reply.",
   ].join("\n");
 
-  const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8" /></head>
-<body style="margin:0;padding:24px;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.55;color:#1e293b;background:#f8fafc;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;">
-    <tr>
-      <td style="padding:28px 28px 8px;">
+  const html = renderEmailShell({
+    eyebrow: "QHSE — Near Miss Report",
+    title: "Your near miss report has been submitted",
+    preheader: "Thank you for reporting — your near miss report was received successfully.",
+    bodyHtml: `
         <p style="margin:0 0 16px;">Dear ${escapeHtml(dear)},</p>
         <p style="margin:0 0 16px;">
-          This is to inform you that your near miss report has been successfully submitted in Oceane Group database.
+          This is to inform you that your near miss report has been successfully submitted in the Oceane Group database.
         </p>
-        <p style="margin:0 0 8px;"><strong>Job No :</strong> ${escapeHtml(job)}</p>
-        <p style="margin:0 0 20px;"><strong>Location :</strong> ${escapeHtml(loc)}</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background-color:#f8fafc;border-radius:8px;">
+          <tr><td style="padding:14px 18px;">
+            ${emailInfoRow("Job No", escapeHtml(job))}
+            ${emailInfoRow("Location", escapeHtml(loc))}
+          </td></tr>
+        </table>
         <p style="margin:0 0 16px;">
           Thank you for your proactive effort in reporting and contributing to a safer working environment.
           The report will be reviewed, and any necessary actions will be taken accordingly.
-        </p>
-        <p style="margin:0 0 16px;">
-          Best regards,<br />
-          <strong>Oceane Group</strong>
-        </p>
-        <p style="margin:0;font-size:13px;color:#64748b;">
-          This is an automated email. Please do not reply.
-        </p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`.trim();
+        </p>`,
+  });
 
   return { subject, html, text };
 }

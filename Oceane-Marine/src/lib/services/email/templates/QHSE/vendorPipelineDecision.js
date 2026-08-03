@@ -4,6 +4,8 @@
  * Sub-Contractor Audit stages reuse it.
  */
 
+import { renderEmailShell, emailStatusBadge, emailAlertBox } from "@/lib/services/email/emailShell";
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -50,7 +52,7 @@ export function buildVendorPipelineDecisionEmail({ decision, formLabel, vendorNa
       : ["", "Reason for rejection:", reason || "—", "", "Please review the feedback above and resubmit using the same link."]),
     "",
     "Best regards,",
-    "Oceane Group",
+    "Helios Tech Labs",
     "",
     "This is an automated email. Please do not reply.",
   ].join("\n");
@@ -58,38 +60,24 @@ export function buildVendorPipelineDecisionEmail({ decision, formLabel, vendorNa
   const rejectionHtml = isApproved
     ? ""
     : `
-        <p style="margin:16px 0 8px;font-weight:700;">Reason for rejection:</p>
-        <p style="margin:0 0 16px;white-space:pre-wrap;">${escapeHtml(reason || "—")}</p>
+        ${emailAlertBox("Reason for Rejection", escapeHtml(reason || "—"), "danger")}
         <p style="margin:0 0 16px;">
           Please review the feedback above and resubmit using the same link.
         </p>`;
 
-  const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8" /></head>
-<body style="margin:0;padding:24px;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.55;color:#1e293b;background:#f8fafc;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;">
-    <tr>
-      <td style="padding:28px 28px 8px;">
-        <p style="margin:0 0 16px;">${escapeHtml(greeting)}</p>
+  const html = renderEmailShell({
+    eyebrow: "QHSE Notification",
+    title: `${escapeHtml(label)} — ${isApproved ? "Approved" : "Not Approved"}`,
+    preheader: statusLine,
+    bodyHtml: `
+        <p style="margin:0 0 14px;">${escapeHtml(greeting)}</p>
+        <p style="margin:0 0 16px;">${emailStatusBadge(isApproved ? "Approved" : "Rejected", isApproved)}</p>
         <p style="margin:0 0 16px;">
           ${escapeHtml(statusLine)}
           ${context ? `<br />${escapeHtml(context)}` : ""}
         </p>
-        ${rejectionHtml}
-        <p style="margin:0 0 16px;">
-          Best regards,<br />
-          <strong>Oceane Group</strong>
-        </p>
-        <p style="margin:0;font-size:13px;color:#64748b;">
-          This is an automated email. Please do not reply.
-        </p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`.trim();
+        ${rejectionHtml}`,
+  });
 
   return { subject, html, text };
 }

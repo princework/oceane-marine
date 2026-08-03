@@ -1,3 +1,5 @@
+import { renderEmailShell, emailButton } from "@/lib/services/email/emailShell";
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -41,42 +43,30 @@ export function buildDrillPlanApprovalRequestEmail({ year, submittedByName, revi
     `Link to Access: ${linkText}`,
     "",
     "Best regards,",
-    "Oceane Group",
+    "Helios Tech Labs",
     "",
     "This is an automated email. Please do not reply.",
   ].join("\n");
 
-  const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8" /></head>
-<body style="margin:0;padding:24px;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.55;color:#1e293b;background:#f8fafc;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;">
-    <tr>
-      <td style="padding:28px 28px 8px;">
+  const buttonHtml = link
+    ? emailButton(escapeHtml(link), "Review Drill Plan")
+    : `<p style="margin:0 0 16px;">${escapeHtml("—")}</p>`;
+
+  const html = renderEmailShell({
+    eyebrow: "QHSE — Drill Plan Approval",
+    title: `Drill Plan for ${escapeHtml(yearStr)} awaiting your approval`,
+    preheader: `A Drill Plan for ${yearStr} has been submitted by ${who}.`,
+    bodyHtml: `
         <p style="margin:0 0 16px;">Dear Approver,</p>
         <p style="margin:0 0 16px;">
           A Drill Plan for <strong>${escapeHtml(yearStr)}</strong> has been submitted by
           <strong>${escapeHtml(who)}</strong> and is awaiting your approval.
         </p>
         <p style="margin:0 0 16px;">
-          Please review the submitted plan by clicking the below link and approve or reject it as required.
+          Please review the submitted plan by clicking the button below and approve or reject it as required.
         </p>
-        <p style="margin:0 0 20px;">
-          ${linkHtml}
-        </p>
-        <p style="margin:0 0 16px;">
-          Best regards,<br />
-          <strong>Oceane Group</strong>
-        </p>
-        <p style="margin:0;font-size:13px;color:#64748b;">
-          This is an automated email. Please do not reply.
-        </p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`.trim();
+        ${buttonHtml}`,
+  });
 
   return { subject, html, text };
 }

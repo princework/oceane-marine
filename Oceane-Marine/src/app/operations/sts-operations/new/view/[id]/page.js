@@ -829,6 +829,7 @@ function ViewOperationPage() {
                   (doc) =>
                     doc?.source !== "MANUAL_UPLOAD" &&
                     doc?.source !== "CHECKLIST_HARDCOPY" &&
+                    doc?.source !== "EMAIL_IMPORT" &&
                     !linkedFormCodes.has(doc.documentType)
                 );
                 const otherDocs = [
@@ -1010,6 +1011,57 @@ function ViewOperationPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Imported Email Attachments — PDFs from the nomination email whose
+                  filename didn't match a CHS/MS document slot; the operator downloads
+                  and files them manually rather than the system guessing. */}
+              {(() => {
+                const emailAttachments = (op.documents || []).filter(
+                  (d) => d?.source === "EMAIL_IMPORT" && d?.filePath
+                );
+                if (!emailAttachments.length) return null;
+
+                const downloadIcon = (
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                );
+
+                return (
+                  <div className="border-t border-white/10 pt-6">
+                    <h3 className="text-lg font-bold text-white mb-2">Imported Email Attachments</h3>
+                    <p className="text-xs text-white/50 mb-4">
+                      These PDFs came from the nomination email but couldn&apos;t be matched to a CHS/MS
+                      document slot by filename. Download and attach them manually.
+                    </p>
+                    <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-4">
+                      {emailAttachments.map((doc, idx) => (
+                        <div
+                          key={`${doc.filePath}-${idx}`}
+                          className="rounded-xl border border-amber-500/30 bg-amber-900/10 p-4 transition-all"
+                        >
+                          <p className="text-sm font-semibold text-white truncate" title={doc.documentType}>
+                            {doc.documentType || "Attachment"}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              downloadFileFromUrl(
+                                doc.filePath,
+                                doc.documentType || doc.filePath.split("/").pop() || "file"
+                              )
+                            }
+                            className="inline-flex items-center gap-1.5 mt-2 text-[11px] text-amber-300 hover:text-amber-200 underline"
+                          >
+                            {downloadIcon}
+                            Download
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Action Buttons */}
               <div className="flex justify-end gap-4 pt-6 border-t border-white/10">

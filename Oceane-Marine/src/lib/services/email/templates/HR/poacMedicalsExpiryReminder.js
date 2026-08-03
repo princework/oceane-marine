@@ -1,3 +1,5 @@
+import { renderEmailShell, emailInfoRow, emailAlertBox } from "@/lib/services/email/emailShell";
+
 export const POAC_MEDICALS_EXPIRY_REMINDER_SUBJECT =
   "Reminder: POAC Valid Medicals Expiring Soon";
 
@@ -29,40 +31,35 @@ export function buildPoacMedicalsExpiryReminderEmail({
     "For further queries and clarifications, please contact operations@oceanemarine.com. Thank you for your attention to this matter.",
     "",
     "Best regards,",
-    "Oceane Group",
+    "Helios Tech Labs",
   ].join("\n");
 
-  const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8" /></head>
-<body style="margin:0;padding:24px;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.55;color:#1e293b;background:#f8fafc;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;">
-    <tr>
-      <td style="padding:28px 28px 8px;">
+  const html = renderEmailShell({
+    eyebrow: "HR — Certification Reminder",
+    title: "Valid Medicals expiring soon",
+    preheader: `The Valid Medicals for POAC ${name} is set to expire on ${when}.`,
+    bodyHtml: `
         <p style="margin:0 0 16px;">Dear Team,</p>
-        <p style="margin:0 0 16px;">
-          This is a formal reminder that the <strong>Valid Medicals (seafarer medical fitness certificate)</strong> for POAC
-          <strong>${escapeHtml(name)}</strong>
-          (STS Service Provider: <strong>${escapeHtml(provider)}</strong>)
-          is set to expire on <strong>${escapeHtml(when)}</strong>.
+        <p style="margin:0 0 18px;">
+          This is a formal reminder that the <strong>Valid Medicals (seafarer medical fitness certificate)</strong> for
+          the POAC listed below is set to expire soon.
         </p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background-color:#f8fafc;border-radius:8px;">
+          <tr><td style="padding:14px 18px;">
+            ${emailInfoRow("POAC", escapeHtml(name))}
+            ${emailInfoRow("STS Service Provider", escapeHtml(provider))}
+            ${emailInfoRow("Expires", escapeHtml(when))}
+          </td></tr>
+        </table>
         <p style="margin:0 0 16px;">
           Please renew the medical certificate and update the POAC Certification Matrix before the expiry date to avoid operational interruptions.
         </p>
-        <p style="margin:0 0 16px;">
+        <p style="margin:0;">
           For further queries and clarifications, please contact
-          <a href="mailto:operations@oceanemarine.com" style="color:#0f766e;text-decoration:underline;">operations@oceanemarine.com</a>.
+          <a href="mailto:operations@oceanemarine.com" style="color:#c2410c;font-weight:600;text-decoration:none;">operations@oceanemarine.com</a>.
           Thank you for your attention to this matter.
-          <br /><br />
-          Best regards,<br />
-          <strong>Oceane Group</strong>
-        </p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`.trim();
+        </p>`,
+  });
 
   return {
     subject: POAC_MEDICALS_EXPIRY_REMINDER_SUBJECT,
@@ -102,40 +99,29 @@ export function buildPoacMedicalsExpiredNoticeEmail({
     "For further queries and clarifications, please contact operations@oceanemarine.com. Thank you for your attention to this matter.",
     "",
     "Best regards,",
-    "Oceane Group",
+    "Helios Tech Labs",
   ].join("\n");
 
-  const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8" /></head>
-<body style="margin:0;padding:24px;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.55;color:#1e293b;background:#f8fafc;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;">
-    <tr>
-      <td style="padding:28px 28px 8px;">
+  const html = renderEmailShell({
+    eyebrow: "HR — Certification Notice",
+    title: "Valid Medicals have expired",
+    preheader: `The Valid Medicals for POAC ${name} expired on ${when}.`,
+    bodyHtml: `
         <p style="margin:0 0 16px;">Dear Team,</p>
-        <p style="margin:0 0 16px;">
-          This is a formal notice that the <strong>Valid Medicals (seafarer medical fitness certificate)</strong> for POAC
-          <strong>${escapeHtml(name)}</strong>
-          (STS Service Provider: <strong>${escapeHtml(provider)}</strong>)
-          <strong>expired</strong> on <strong>${escapeHtml(when)}</strong>.
+        <p style="margin:0 0 18px;">
+          This is a formal notice that the <strong>Valid Medicals (seafarer medical fitness certificate)</strong> for
+          the POAC listed below has expired.
         </p>
+        ${emailAlertBox("Expired", `Valid Medicals for POAC ${escapeHtml(name)} (STS Service Provider: ${escapeHtml(provider)}) expired on ${escapeHtml(when)}.`, "danger")}
         <p style="margin:0 0 16px;">
           Please renew the medical certificate and update the POAC Certification Matrix as soon as possible to avoid operational interruptions.
         </p>
-        <p style="margin:0 0 16px;">
+        <p style="margin:0;">
           For further queries and clarifications, please contact
-          <a href="mailto:operations@oceanemarine.com" style="color:#0f766e;text-decoration:underline;">operations@oceanemarine.com</a>.
+          <a href="mailto:operations@oceanemarine.com" style="color:#c2410c;font-weight:600;text-decoration:none;">operations@oceanemarine.com</a>.
           Thank you for your attention to this matter.
-          <br /><br />
-          Best regards,<br />
-          <strong>Oceane Group</strong>
-        </p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`.trim();
+        </p>`,
+  });
 
   return {
     subject: POAC_MEDICALS_EXPIRED_NOTICE_SUBJECT,

@@ -8,7 +8,6 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { TemplateDownloadLink } from "../../../components/TemplateDownloadLink";
 import { useSearchParams, useRouter } from "next/navigation";
-import QhseSidebar from "../../../components/QhseSidebar";
 
 const RATING_VALUES = [1, 2, 3, 4];
 

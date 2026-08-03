@@ -34,18 +34,18 @@ export async function GET(req) {
     }
 
     if (year) {
+      // Not filtered by status: the Training Record page needs to see
+      // Pending Approval / Rejected plans too, so approvers can act on them
+      // in-app instead of only via the emailed review link.
       const plan = await TrainingPlan.findOne({
         ...archivedFilter,
         year: Number.parseInt(year, 10),
-        status: "Approved",
       }).sort({ createdAt: -1 });
 
       return NextResponse.json({
         success: true,
         data: plan || null,
-        message: plan
-          ? "Approved training plan found"
-          : "No approved training plan for this year",
+        message: plan ? "Training plan found" : "No training plan for this year",
       });
     }
 
