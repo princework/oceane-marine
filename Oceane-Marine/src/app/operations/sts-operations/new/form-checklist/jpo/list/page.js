@@ -109,6 +109,7 @@ export default function JpoListPage() {
         const s = searchTerm.toLowerCase();
         return (
           (r.location?.name || "").toLowerCase().includes(s) ||
+          (r.operationRef || "").toLowerCase().includes(s) ||
           String(r.version || "").includes(s) ||
           (r.uploadedBy?.name || "").toLowerCase().includes(s) ||
           formatDate(r.date).toLowerCase().includes(s)
@@ -444,6 +445,9 @@ export default function JpoListPage() {
                 <thead className="bg-white/5 border-b border-white/10">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
+                      Operation Ref
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
                       Location
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-semibold text-white/90 uppercase tracking-wider">
@@ -466,6 +470,11 @@ export default function JpoListPage() {
                 <tbody className="divide-y divide-white/10">
                   {paginatedRecords.map((record) => (
                     <tr key={record._id} className="hover:bg-white/5 transition">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-white/90">
+                          {record.operationRef || "—"}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-white/90">
                           {record.location?.name || "—"}

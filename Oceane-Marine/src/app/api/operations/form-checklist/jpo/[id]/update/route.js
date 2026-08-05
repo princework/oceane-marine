@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { connectDB } from "@/lib/config/connection";
 import Jpo from "@/lib/mongodb/models/operations-form-checklist/Jpo";
+import StsOperation from "@/lib/mongodb/models/sts-documentation/StsOperation";
 import { notifyOperationsEdit, notifyOperationsDelete } from "@/lib/notifications/operationsNotified";
 
 export const runtime = "nodejs";
@@ -23,6 +24,7 @@ export async function POST(req, { params }) {
     const date = formData.get("date");
     const uploadedBy = formData.get("uploadedBy");
     const locationId = formData.get("locationId");
+    const operationRefInput = formData.get("operationRef");
 
     if (!file) {
       return NextResponse.json({ error: "File is required" }, { status: 400 });
@@ -37,6 +39,22 @@ export async function POST(req, { params }) {
       return NextResponse.json(
         { error: "Record not found" },
         { status: 404 }
+      );
+    }
+
+    const operationRef = (operationRefInput?.trim() || existingRecord.operationRef || "").trim();
+    if (!operationRef) {
+      return NextResponse.json({ error: "Operation Ref No is required" }, { status: 400 });
+    }
+
+    const operation = await StsOperation.findOne({
+      Operation_Ref_No: operationRef,
+      isLatest: true,
+    });
+    if (!operation) {
+      return NextResponse.json(
+        { error: "Selected operation could not be found" },
+        { status: 400 }
       );
     }
 
@@ -72,14 +90,21 @@ export async function POST(req, { params }) {
       locationName = locationDoc?.name || locationName;
     }
 
+    const relativeFilePath = `uploads/operations/jpo/${existingRecord.formCode}/v${nextVersion}/${uniqueFileName}`;
+
     const record = await Jpo.create({
       location: { locationId: locationId || location.locationId, name: locationName },
+      operationRef,
       formCode: existingRecord.formCode,
-      filePath: `uploads/operations/jpo/${existingRecord.formCode}/v${nextVersion}/${uniqueFileName}`,
+      filePath: relativeFilePath,
       version: nextVersion,
       date: new Date(date),
       uploadedBy: { name: uploadedBy || "" },
     });
+
+    // Keep the linked operation's JPO document in sync with the newest version.
+    operation.jpo = relativeFilePath;
+    await operation.save();
 
     void notifyOperationsEdit("JPO", record._id);
     return NextResponse.json({

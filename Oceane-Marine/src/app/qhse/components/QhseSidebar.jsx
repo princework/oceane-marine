@@ -48,11 +48,6 @@ const sidebarTabs = [
         href: "/qhse/forms-checklist/equipment-base-stock-level/form",
       },
       {
-        key: "transfer-location-quest",
-        label: "Transfer Location Questionnaire",
-        href: "/qhse/forms-checklist/transfer-location-quest/list",
-      },
-      {
         key: "new-base-setup-checklist",
         label: "New Base Setup Checklist",
         href: "/qhse/forms-checklist/new-base-setup-checklist/form",
@@ -234,12 +229,6 @@ export default function QhseSidebar() {
       ) {
         setExpandedNestedSubmodules(
           (prev) => new Set([...prev, "equipment-base-stock-level"])
-        );
-      } else if (
-        pathname.startsWith("/qhse/forms-checklist/transfer-location-quest")
-      ) {
-        setExpandedNestedSubmodules(
-          (prev) => new Set([...prev, "transfer-location-quest"])
         );
       } else if (
         pathname.startsWith("/qhse/forms-checklist/new-base-setup-checklist")

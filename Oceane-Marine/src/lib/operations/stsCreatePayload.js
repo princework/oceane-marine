@@ -138,6 +138,7 @@ export function buildStsCreateDocument({
     "chs",
     "ms",
     "remarks",
+    "description",
   ];
   for (const key of optionalText) {
     const v = trimOrNull(body[key]);

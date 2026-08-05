@@ -27,8 +27,10 @@ export default function JpoFormPage() {
     date: new Date().toISOString().split("T")[0],
     uploadedBy: "",
     locationId: "",
+    operationRef: "",
   });
   const [locations, setLocations] = useState([]);
+  const [operations, setOperations] = useState([]);
   const [existingRecord, setExistingRecord] = useState(null);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -49,6 +51,19 @@ export default function JpoFormPage() {
       }
     };
     fetchLocations();
+
+    const fetchOperations = async () => {
+      try {
+        const res = await fetch("/api/operations/form-checklist/jpo/operations-list");
+        const data = await res.json();
+        if (res.ok && data.data) {
+          setOperations(data.data);
+        }
+      } catch (err) {
+        setError("Failed to load operations");
+      }
+    };
+    fetchOperations();
   }, []);
 
   useEffect(() => {
@@ -68,6 +83,7 @@ export default function JpoFormPage() {
                   : new Date().toISOString().split("T")[0],
                 uploadedBy: record.uploadedBy?.name || "",
                 locationId: record.location?.locationId?.toString() || "",
+                operationRef: record.operationRef || "",
               });
             } else {
               setError("Record not found");
@@ -164,6 +180,12 @@ export default function JpoFormPage() {
       return;
     }
 
+    if (!form.operationRef?.trim()) {
+      setError("Please select the Operation Ref No");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     setUploading(true);
     setError("");
     setSuccess("");
@@ -174,6 +196,7 @@ export default function JpoFormPage() {
       formData.append("date", form.date);
       formData.append("uploadedBy", form.uploadedBy.trim());
       formData.append("locationId", form.locationId.trim());
+      formData.append("operationRef", form.operationRef.trim());
 
       const apiUrl = editId
         ? `/api/operations/form-checklist/jpo/${editId}/update`
@@ -200,6 +223,7 @@ export default function JpoFormPage() {
         date: new Date().toISOString().split("T")[0],
         uploadedBy: "",
         locationId: "",
+        operationRef: "",
       });
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -459,6 +483,40 @@ export default function JpoFormPage() {
 
             <div className="space-y-4">
               <div>
+                <label htmlFor="operationRef" className="block text-sm font-medium text-white/90 mb-2">
+                  Operation Ref No <span className="text-red-400">*</span>
+                </label>
+                <OperationsSelectField
+                  id="operationRef"
+                  ariaLabel="Operation Ref No"
+                  value={form.operationRef}
+                  onChange={(v) => {
+                    const selectedOp = operations.find((op) => op.operationRef === v);
+                    setForm((prev) => ({
+                      ...prev,
+                      operationRef: v,
+                      locationId: selectedOp?.locationId || prev.locationId,
+                    }));
+                  }}
+                  options={[
+                    { value: "", label: "Select operation" },
+                    ...operations.map((op) => {
+                      const vessels = [op.chs, op.ms].filter(Boolean).join(" / ");
+                      const suffix = [op.client, vessels].filter(Boolean).join(" — ");
+                      return {
+                        value: op.operationRef,
+                        label: suffix ? `${op.operationRef} (${suffix})` : op.operationRef,
+                      };
+                    }),
+                  ]}
+                  triggerClassName="flex min-h-[2.75rem] w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 pr-10 text-left text-sm text-white outline-none transition-all backdrop-blur-sm focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/50"
+                  className="w-full"
+                />
+                <p className="text-xs text-white/40 mt-1.5">
+                  The STS operation this Joint Plan Operation document belongs to.
+                </p>
+              </div>
+              <div>
                 <label htmlFor="locationId" className="block text-sm font-medium text-white/90 mb-2">
                   Location <span className="text-red-400">*</span>
                 </label>
@@ -634,7 +692,7 @@ export default function JpoFormPage() {
             {(editId ? canEditForm : canCreateForm) ? (
               <button
                 type="submit"
-                disabled={uploading || loading || !file || !form.uploadedBy?.trim() || !form.date || !form.locationId?.trim()}
+                disabled={uploading || loading || !file || !form.uploadedBy?.trim() || !form.date || !form.locationId?.trim() || !form.operationRef?.trim()}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 transition hover:from-orange-600 hover:to-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {uploading

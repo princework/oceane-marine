@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
+import {
+  DashboardHorizontalBarChart,
+  DashboardStackedBarChart,
+} from "./charts/DashboardChartPrimitives";
 
 /* chart.js — lazy-loaded so main bundle stays small */
 const DoughnutChart = dynamic(
@@ -136,7 +140,6 @@ export default function PMSCharts() {
       total: (d.primaryFenders || 0) + (d.secondaryFenders || 0) + (d.hoses || 0),
     };
   });
-  const maxStackValue = Math.max(...stackedChartData.map((d) => d.total), 1);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -281,56 +284,12 @@ export default function PMSCharts() {
           </h2>
           <div className="space-y-4">
             {retirementData.length > 0 ? (
-              <>
-                <div className="flex items-center gap-3 mb-4 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-orange-500" />
-                    <span className="text-xs text-slate-300">
-                      Primary Fender
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                    <span className="text-xs text-slate-300">LPG Hose</span>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  {retirementData.map((item, idx) => {
-                    const maxRetirement = Math.max(
-                      ...retirementData.map((d) => d.count),
-                      1
-                    );
-                    const width = (item.count / maxRetirement) * 100;
-                    const colors = [
-                      "#f97316",
-                      "#eab308",
-                      "#3b82f6",
-                      "#8b5cf6",
-                    ];
-                    return (
-                      <div key={item.type} className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-slate-300">
-                            {item.type}
-                          </span>
-                          <span className="text-xs font-bold text-white">
-                            {item.count}
-                          </span>
-                        </div>
-                        <div className="w-full bg-white/10 rounded-full h-6 relative overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{
-                              width: `${width}%`,
-                              backgroundColor: colors[idx % colors.length],
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
+              <DashboardHorizontalBarChart
+                labels={retirementData.map((d) => d.type)}
+                data={retirementData.map((d) => d.count)}
+                colors={["#f97316", "#eab308", "#3b82f6", "#8b5cf6"]}
+                unitLabel="units"
+              />
             ) : (
               <div className="text-center py-8 text-slate-400 text-sm">
                 No retired equipment
@@ -344,93 +303,22 @@ export default function PMSCharts() {
           <h2 className="text-sm sm:text-base md:text-lg font-bold text-white mb-2 sm:mb-3 md:mb-4">
             Equipment by Location
           </h2>
-          <div className="flex items-center gap-2 sm:gap-3 md:gap-4 mb-2 sm:mb-3 md:mb-4 flex-wrap">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-cyan-400" />
-              <span className="text-[10px] sm:text-xs text-slate-300">P.Fender</span>
+          {stackedChartData.length > 0 ? (
+            <DashboardStackedBarChart
+              labels={stackedChartData.map((d) => d.location)}
+              series={[
+                { label: "P.Fender", data: stackedChartData.map((d) => d.primaryFenders), color: "#22d3ee" },
+                { label: "S.Fender", data: stackedChartData.map((d) => d.secondaryFenders), color: "#4ade80" },
+                { label: "P.O.Hose", data: stackedChartData.map((d) => d.hoses), color: "#c084fc" },
+              ]}
+              unitLabel="units"
+              className="h-48 sm:h-64 md:h-80"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-48 sm:h-64 md:h-80 text-white/40 text-sm">
+              No location data
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-green-400" />
-              <span className="text-[10px] sm:text-xs text-slate-300">S.Fender</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-purple-400" />
-              <span className="text-[10px] sm:text-xs text-slate-300">P.O.Hose</span>
-            </div>
-          </div>
-          <div className="h-48 sm:h-64 md:h-80 flex items-end justify-around gap-0.5 sm:gap-1 md:gap-2 px-0.5 sm:px-1 md:px-2 overflow-x-auto">
-            {stackedChartData.length > 0 ? (
-              stackedChartData.map((data) => {
-                const primaryH = (data.primaryFenders / maxStackValue) * 100;
-                const secondaryH =
-                  (data.secondaryFenders / maxStackValue) * 100;
-                const hosesH = (data.hoses / maxStackValue) * 100;
-                return (
-                  <div
-                    key={data.location}
-                    className="flex-1 flex flex-col items-center gap-1 h-full"
-                  >
-                    <div
-                      className="w-full flex flex-col-reverse gap-0.5 relative"
-                      style={{ height: "100%" }}
-                    >
-                      {hosesH > 0 && (
-                        <div
-                          className="w-full bg-purple-400 rounded-t flex items-center justify-center"
-                          style={{
-                            height: `${hosesH}%`,
-                            minHeight: "18px",
-                          }}
-                        >
-                          <span className="text-[10px] sm:text-xs font-bold text-white drop-shadow-md">
-                            {data.hoses}
-                          </span>
-                        </div>
-                      )}
-                      {secondaryH > 0 && (
-                        <div
-                          className="w-full bg-green-400 flex items-center justify-center"
-                          style={{
-                            height: `${secondaryH}%`,
-                            minHeight: "18px",
-                          }}
-                        >
-                          <span className="text-[10px] sm:text-xs font-bold text-white drop-shadow-md">
-                            {data.secondaryFenders}
-                          </span>
-                        </div>
-                      )}
-                      {primaryH > 0 && (
-                        <div
-                          className="w-full bg-cyan-400 rounded-b flex items-center justify-center"
-                          style={{
-                            height: `${primaryH}%`,
-                            minHeight: "18px",
-                          }}
-                        >
-                          <span className="text-[10px] sm:text-xs font-bold text-white drop-shadow-md">
-                            {data.primaryFenders}
-                          </span>
-                        </div>
-                      )}
-                      {data.total > 0 && (
-                        <span className="absolute -top-6 md:-top-5 left-1/2 transform -translate-x-1/2 text-[10px] md:text-xs font-semibold text-white whitespace-nowrap z-10">
-                          {data.total}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[9px] md:text-[10px] font-semibold text-slate-300 text-center leading-tight mt-1 break-words">
-                      {data.location}
-                    </span>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="flex items-center justify-center w-full text-white/40 text-sm">
-                No location data
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </div>

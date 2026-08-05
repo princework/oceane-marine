@@ -148,11 +148,14 @@ test("a realistic nomination email is read without a model", () => {
     ms: "ATLANTIC TRADER",
     loaCHS: null,
     loaMS: null,
+    vesselTypeCHS: null,
+    vesselTypeMS: null,
     client: null,
     agent: null,
     quantity: "80000",
     operationStartTime: null,
     operationEndTime: null,
+    description: null,
   });
 });
 

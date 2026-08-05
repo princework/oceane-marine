@@ -23,21 +23,26 @@ const ALL_SIDEBAR_TABS = [
         label: "JPO",
         href: "/operations/sts-operations/new/form-checklist/jpo/form",
       },
+      // {
+      //   key: "quotation",
+      //   label: "Quotation",
+      //   href: "/operations/sts-operations/new/form-checklist/quotations/sts-form",
+      // },
       {
-        key: "quotation",
-        label: "Quotation",
-        href: "/operations/sts-operations/new/form-checklist/quotations/sts-form",
+        key: "transfer-location-quest",
+        label: "Transfer Location Questionnaire",
+        href: "/operations/sts-operations/new/form-checklist/transfer-location-quest/list",
       },
-      {
-        key: "inspection-checklist",
-        label: "Inspection Checklist",
-        href: "/operations/sts-operations/new/form-checklist/inspection-checklist/form",
-      },
-      {
-        key: "manual",
-        label: "Manual",
-        href: "/operations/sts-operations/new/form-checklist/manual/form",
-      },
+      // {
+      //   key: "inspection-checklist",
+      //   label: "Inspection Checklist",
+      //   href: "/operations/sts-operations/new/form-checklist/inspection-checklist/form",
+      // },
+      // {
+      //   key: "manual",
+      //   label: "Manual",
+      //   href: "/operations/sts-operations/new/form-checklist/manual/form",
+      // },
     ],
   },
   {

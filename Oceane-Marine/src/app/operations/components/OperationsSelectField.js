@@ -127,10 +127,15 @@ export default function OperationsSelectField({
     () =>
       options.map((opt) => {
         if (typeof opt === "object" && opt !== null) {
-          return { value: String(opt.value ?? ""), label: String(opt.label ?? "") };
+          return {
+            value: String(opt.value ?? ""),
+            label: String(opt.label ?? ""),
+            /** Flags the option (and the trigger, when it's the current selection) red — e.g. a mooring master with incomplete/expired POAC documents. */
+            warn: Boolean(opt.warn),
+          };
         }
         const s = String(opt);
-        return { value: s, label: s };
+        return { value: s, label: s, warn: false };
       }),
     [options]
   );
@@ -153,11 +158,13 @@ export default function OperationsSelectField({
     if (onChange) onChange(str);
   };
 
+  const selectedOption = normalized.find((o) => o.value === selected);
+  const selectedWarn = !loading && selected !== "" && Boolean(selectedOption?.warn);
+
   const selectedLabel = (() => {
     if (loading) return "Loading...";
     if (selected === "" && placeholder) return placeholder;
-    const hit = normalized.find((o) => o.value === selected);
-    if (hit) return hit.label;
+    if (selectedOption) return selectedOption.label;
     return placeholder || "Select";
   })();
 
@@ -173,7 +180,9 @@ export default function OperationsSelectField({
 
   const toneClass = triggerClassName
     ? ""
-    : `${placeholderLike ? "font-normal text-white/60" : "font-semibold text-white"}`;
+    : selectedWarn
+      ? "font-semibold text-red-400"
+      : `${placeholderLike ? "font-normal text-white/60" : "font-semibold text-white"}`;
 
   const menuPositionClass =
     menuPlacement === "top"
@@ -332,7 +341,13 @@ export default function OperationsSelectField({
                       role="option"
                       aria-selected={selected === opt.value}
                       className={`${optionBtn} ${
-                        selected === opt.value ? "bg-[#1b3d5c]/90 text-white" : "text-slate-200"
+                        opt.warn
+                          ? selected === opt.value
+                            ? "bg-[#1b3d5c]/90 text-red-400"
+                            : "text-red-400 hover:text-red-300"
+                          : selected === opt.value
+                            ? "bg-[#1b3d5c]/90 text-white"
+                            : "text-slate-200"
                       }`}
                       onClick={() => {
                         commit(opt.value);

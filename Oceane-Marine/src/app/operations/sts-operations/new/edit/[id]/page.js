@@ -315,6 +315,10 @@ export default function EditOperationPage() {
         const remarksInput = formRef.current.querySelector('textarea[name="remarks"]');
         if (remarksInput) remarksInput.value = op.remarks;
       }
+      if (op.description) {
+        const descriptionInput = formRef.current.querySelector('textarea[name="description"]');
+        if (descriptionInput) descriptionInput.value = op.description;
+      }
 
       // SelectField values come from defaultValue; still load location-dependent data
       if (op.location) {
@@ -736,7 +740,13 @@ export default function EditOperationPage() {
                   );
                   return [
                     { label: "Select", value: "" },
-                    ...eligible.map((m) => ({ label: m.name, value: m._id })),
+                    ...eligible.map((m) => ({
+                      label: m.poacCompliant
+                        ? m.name
+                        : `${m.name} — ⚠ ${m.poacIssues?.[0] || "documents incomplete"}`,
+                      value: m._id,
+                      warn: !m.poacCompliant,
+                    })),
                   ];
                 })()}
                 name="mooringMaster"
@@ -1184,6 +1194,11 @@ export default function EditOperationPage() {
                 name="remarks"
               />
             </div>
+            <TextAreaField
+              label="Description"
+              placeholder="Other details from the nomination with no field of their own — vessel flag, cargo grade, capacities, requested support, permits, etc."
+              name="description"
+            />
 
             <StsDocumentationMultiUpload
               key={`${operationData?._id || "op"}-docs`}

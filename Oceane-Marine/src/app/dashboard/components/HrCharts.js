@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import {
+  DashboardBarChart,
+  DashboardHorizontalBarChart,
+} from "./charts/DashboardChartPrimitives";
 
 export default function HrCharts() {
   const router = useRouter();
@@ -181,33 +185,20 @@ export default function HrCharts() {
           <h2 className="text-sm sm:text-base md:text-lg font-bold text-white mb-3 md:mb-4">
             Certificates by Location
           </h2>
-          <div className="h-48 sm:h-56 md:h-64 flex items-end justify-around gap-1 sm:gap-2 px-1 sm:px-2">
-            {certLocationData.length > 0 ? (
-              certLocationData.slice(0, 8).map((item) => {
-                const maxValue = Math.max(...certLocationData.map((d) => d.count), 1);
-                const height = (item.count / maxValue) * 100;
-                return (
-                  <div key={item.name} className="flex-1 flex flex-col items-center gap-1">
-                    <div
-                      className="w-full bg-gradient-to-t from-cyan-500 to-cyan-400 rounded-t relative flex items-center justify-center"
-                      style={{ height: `${height}%`, minHeight: "20px" }}
-                    >
-                      <span className="absolute -top-5 left-1/2 transform -translate-x-1/2 text-[10px] sm:text-xs font-semibold text-white whitespace-nowrap">
-                        {item.count}
-                      </span>
-                    </div>
-                    <span className="text-[8px] sm:text-[10px] font-semibold text-slate-300 text-center leading-tight break-words">
-                      {item.name.length > 10 ? item.name.substring(0, 10) : item.name}
-                    </span>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center py-8 text-slate-400 text-xs sm:text-sm w-full">
-                No certificate data
-              </div>
-            )}
-          </div>
+          {certLocationData.length > 0 ? (
+            <DashboardBarChart
+              labels={certLocationData.slice(0, 8).map((d) => d.name)}
+              data={certLocationData.slice(0, 8).map((d) => d.count)}
+              color="#22d3ee"
+              hoverColor="#67e8f9"
+              unitLabel="certificates"
+              className="h-48 sm:h-56 md:h-64"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-48 sm:h-56 md:h-64 text-slate-400 text-xs sm:text-sm">
+              No certificate data
+            </div>
+          )}
         </div>
 
         {/* Oil Majors by Status - Horizontal bars */}
@@ -215,34 +206,15 @@ export default function HrCharts() {
           <h2 className="text-sm sm:text-base md:text-lg font-bold text-white mb-3 md:mb-4">
             Oil Majors by Status
           </h2>
-          <div className="space-y-3">
-            {oilMajorStatusData.length > 0 ? (
-              oilMajorStatusData.map((item, idx) => {
-                const maxCount = Math.max(...oilMajorStatusData.map((d) => d.count), 1);
-                const width = (item.count / maxCount) * 100;
-                const colors = ["#10b981", "#f59e0b", "#8b5cf6"];
-                return (
-                  <div key={item.name} className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-300">{item.name}</span>
-                      <span className="text-xs font-bold text-white">{item.count}</span>
-                    </div>
-                    <div className="w-full bg-white/10 rounded-full h-4 relative overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${width}%`,
-                          backgroundColor: colors[idx % colors.length],
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center py-8 text-slate-400 text-sm">No oil major data</div>
-            )}
-          </div>
+          {oilMajorStatusData.length > 0 ? (
+            <DashboardHorizontalBarChart
+              labels={oilMajorStatusData.map((d) => d.name)}
+              data={oilMajorStatusData.map((d) => d.count)}
+              colors={["#10b981", "#f59e0b", "#8b5cf6"]}
+            />
+          ) : (
+            <div className="text-center py-8 text-slate-400 text-sm">No oil major data</div>
+          )}
         </div>
 
         {/* Certificates by Type - Horizontal bars */}
@@ -250,34 +222,15 @@ export default function HrCharts() {
           <h2 className="text-sm sm:text-base md:text-lg font-bold text-white mb-3 md:mb-4">
             Certificates by Type
           </h2>
-          <div className="space-y-3">
-            {certTypeData.length > 0 ? (
-              certTypeData.slice(0, 8).map((item, idx) => {
-                const maxCount = Math.max(...certTypeData.map((d) => d.count), 1);
-                const width = (item.count / maxCount) * 100;
-                const colors = ["#06b6d4", "#f472b6", "#a78bfa", "#fb923c", "#34d399", "#facc15", "#60a5fa", "#f87171"];
-                return (
-                  <div key={item.name} className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-300 truncate max-w-[70%]">{item.name}</span>
-                      <span className="text-xs font-bold text-white">{item.count}</span>
-                    </div>
-                    <div className="w-full bg-white/10 rounded-full h-4 relative overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${width}%`,
-                          backgroundColor: colors[idx % colors.length],
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center py-8 text-slate-400 text-sm">No certificate type data</div>
-            )}
-          </div>
+          {certTypeData.length > 0 ? (
+            <DashboardHorizontalBarChart
+              labels={certTypeData.slice(0, 8).map((d) => d.name)}
+              data={certTypeData.slice(0, 8).map((d) => d.count)}
+              colors={["#06b6d4", "#f472b6", "#a78bfa", "#fb923c", "#34d399", "#facc15", "#60a5fa", "#f87171"]}
+            />
+          ) : (
+            <div className="text-center py-8 text-slate-400 text-sm">No certificate type data</div>
+          )}
         </div>
 
         {/* CID by Location - Bar Chart */}
@@ -285,33 +238,20 @@ export default function HrCharts() {
           <h2 className="text-sm sm:text-base md:text-lg font-bold text-white mb-3 md:mb-4">
             CID by Location
           </h2>
-          <div className="h-48 sm:h-56 md:h-64 flex items-end justify-around gap-1 sm:gap-2 px-1 sm:px-2">
-            {cidLocationData.length > 0 ? (
-              cidLocationData.slice(0, 8).map((item) => {
-                const maxValue = Math.max(...cidLocationData.map((d) => d.count), 1);
-                const height = (item.count / maxValue) * 100;
-                return (
-                  <div key={item.name} className="flex-1 flex flex-col items-center gap-1">
-                    <div
-                      className="w-full bg-gradient-to-t from-orange-500 to-orange-400 rounded-t relative flex items-center justify-center"
-                      style={{ height: `${height}%`, minHeight: "20px" }}
-                    >
-                      <span className="absolute -top-5 left-1/2 transform -translate-x-1/2 text-[10px] sm:text-xs font-semibold text-white whitespace-nowrap">
-                        {item.count}
-                      </span>
-                    </div>
-                    <span className="text-[8px] sm:text-[10px] font-semibold text-slate-300 text-center leading-tight break-words">
-                      {item.name.length > 10 ? item.name.substring(0, 10) : item.name}
-                    </span>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center py-8 text-slate-400 text-xs sm:text-sm w-full">
-                No CID location data
-              </div>
-            )}
-          </div>
+          {cidLocationData.length > 0 ? (
+            <DashboardBarChart
+              labels={cidLocationData.slice(0, 8).map((d) => d.name)}
+              data={cidLocationData.slice(0, 8).map((d) => d.count)}
+              color="#fb923c"
+              hoverColor="#fdba74"
+              unitLabel="CIDs"
+              className="h-48 sm:h-56 md:h-64"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-48 sm:h-56 md:h-64 text-slate-400 text-xs sm:text-sm">
+              No CID location data
+            </div>
+          )}
         </div>
       </div>
 

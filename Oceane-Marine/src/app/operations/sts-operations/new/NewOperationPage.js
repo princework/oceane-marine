@@ -1258,7 +1258,13 @@ export default function NewOperationPage() {
                   { label: "Select", value: "" },
                   ...mooringMasters
                     .filter((m) => m.availabilityStatus === "AVAILABLE")
-                    .map((m) => ({ label: m.name, value: m._id })),
+                    .map((m) => ({
+                      label: m.poacCompliant
+                        ? m.name
+                        : `${m.name} — ⚠ ${m.poacIssues?.[0] || "documents incomplete"}`,
+                      value: m._id,
+                      warn: !m.poacCompliant,
+                    })),
                 ]}
                 name="mooringMaster"
                 value={selectedMooringMasterId}
@@ -1701,6 +1707,11 @@ export default function NewOperationPage() {
                 name="remarks"
               />
             </div>
+            <TextAreaField
+              label="Description"
+              placeholder="Other details from the nomination with no field of their own — vessel flag, cargo grade, capacities, requested support, permits, etc."
+              name="description"
+            />
 
             <StsDocumentationMultiUpload key={formResetKey} />
 

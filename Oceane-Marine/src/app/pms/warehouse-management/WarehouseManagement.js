@@ -633,7 +633,19 @@ export default function WarehouseManagement({ view: controlledView, onViewChange
               label="Equipment Type"
               options={equipmentTypes}
               value={form.equipmentType}
-              onChange={(val) => setForm((prev) => ({ ...prev, equipmentType: val }))}
+              onChange={(val) =>
+                setForm((prev) => ({
+                  ...prev,
+                  equipmentType: val,
+                  // Fender/hose counts are meaningless for e.g. a compressor or crane —
+                  // clear them so a stale count from a previous selection never gets submitted.
+                  ...(!/fender|hose/i.test(val || "") && {
+                    primaryFenders: "",
+                    secondaryFenders: "",
+                    hoses: "",
+                  }),
+                }))
+              }
               placeholder="Select type..."
             />
 
@@ -646,12 +658,15 @@ export default function WarehouseManagement({ view: controlledView, onViewChange
             />
           </div>
 
-          {/* ROW 2: Primary Fenders, Secondary Fenders, Hoses */}
-          <div className="grid md:grid-cols-3 gap-4">
-            <Input label="Primary Fenders" name="primaryFenders" type="number" value={form.primaryFenders} onChange={handleChange} />
-            <Input label="Secondary Fenders" name="secondaryFenders" type="number" value={form.secondaryFenders} onChange={handleChange} />
-            <Input label="Hoses" name="hoses" type="number" value={form.hoses} onChange={handleChange} />
-          </div>
+          {/* ROW 2: Primary Fenders, Secondary Fenders, Hoses — only relevant for fender/hose-type
+              equipment; a compressor, crane, or gauge has no fender/hose count to enter. */}
+          {/fender|hose/i.test(form.equipmentType || "") && (
+            <div className="grid md:grid-cols-3 gap-4">
+              <Input label="Primary Fenders" name="primaryFenders" type="number" value={form.primaryFenders} onChange={handleChange} />
+              <Input label="Secondary Fenders" name="secondaryFenders" type="number" value={form.secondaryFenders} onChange={handleChange} />
+              <Input label="Hoses" name="hoses" type="number" value={form.hoses} onChange={handleChange} />
+            </div>
+          )}
 
           {/* ROW 2b: Additional Equipments — free text for spares / extras not counted above */}
           <div>

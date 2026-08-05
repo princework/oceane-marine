@@ -10,7 +10,6 @@ const baseTabs = [
   { key: "operations", label: "Operations" },
   { key: "pms", label: "PMS" },
   { key: "qhse", label: "QHSE" },
-  { key: "accounts", label: "Accounts" },
   { key: "hr", label: "HR" },
 ];
 
@@ -18,11 +17,10 @@ const menuItems = [
   { key: "operations", label: "Operations", href: "/operations" },
   { key: "pms", label: "PMS", href: "/pms" },
   { key: "qhse", label: "QHSE", href: "/qhse/training/create/plan" },
-  { key: "accounts", label: "Accounts", href: "/accounts" },
   { key: "hr", label: "HR", href: "/hr" },
 ];
 
-const BASE_VALID_TABS = ["operations", "pms", "qhse", "accounts", "hr"];
+const BASE_VALID_TABS = ["operations", "pms", "qhse", "hr"];
 
 /** Periodic `router.refresh` only for these dashboard module tabs (not admin — admin is `/admin`) */
 const DASHBOARD_AUTO_REFRESH_TABS = new Set(BASE_VALID_TABS);
@@ -123,7 +121,6 @@ export default function DashboardPage() {
     operations: { label: "Go to Operations", href: "/operations" },
     pms: { label: "Go to PMS", href: "/pms" },
     qhse: { label: "Go to QHSE", href: "/qhse/training/create/plan" },
-    accounts: { label: "Go to Accounts", href: "/accounts" },
     hr: { label: "Go to HR", href: "/hr" },
   }[activeTab];
 

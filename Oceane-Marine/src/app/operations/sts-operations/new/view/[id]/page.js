@@ -1010,6 +1010,12 @@ function ViewOperationPage() {
                     </div>
                   </div>
                 </div>
+                <div className="min-w-0 space-y-2 mt-6">
+                  <label className="block text-sm font-medium text-white">Description</label>
+                  <div className="rounded-xl border border-white/10 bg-slate-800/60 shadow min-h-20 p-4">
+                    <p className="text-white whitespace-pre-wrap text-sm">{op.description || "-"}</p>
+                  </div>
+                </div>
               </div>
 
               {/* Imported Email Attachments — PDFs from the nomination email whose

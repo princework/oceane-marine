@@ -9,7 +9,6 @@ const menuItems = [
   { key: "operations", label: "Operations", href: "/operations" },
   { key: "pms", label: "PMS", href: "/pms" },
   { key: "qhse", label: "QHSE", href: "/qhse/training/create/plan" },
-  { key: "accounts", label: "Accounts", href: "/accounts" },
   { key: "hr", label: "HR", href: "/hr" },
 ];
 
