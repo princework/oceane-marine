@@ -45,6 +45,12 @@ export const STS_CHECKLIST_FORMS = [
   { formNo: "OPS-OFD-020", title: "Master's Feedback Form", apiPath: "ops-ofd-020" },
   { formNo: "OPS-OFD-023", title: "Record of Work Hours (Rest Hours CKL)", apiPath: "ops-ofd-023" },
   { formNo: "OPS-OFD-029", title: "Mooring Master Expense Sheet", apiPath: "ops-ofd-029" },
+  {
+    formNo: "NEAR-MISS",
+    title: "Near Miss Report",
+    apiPath: null,
+    directUrl: "https://qhse-forms.vercel.app/forms/near-miss",
+  },
 ];
 
 /**
@@ -69,10 +75,13 @@ export const STS_CHECKLIST_SHARED_FORM_NOS = [
   "OPS-OFD-023",
   "OPS-OFD-028",
   "OPS-OFD-029",
+  "NEAR-MISS",
 ];
 
 /**
  * Rows ({ code, name, url }) for the shared forms, resolved against an operation reference.
+ * A form with a fixed `directUrl` (e.g. Near Miss) is not operation-scoped, so that URL is
+ * used as-is rather than building one against the STS checklist forms app.
  */
 export function buildStsChecklistLinkRows(operationRef) {
   return STS_CHECKLIST_SHARED_FORM_NOS.map((formNo) => {
@@ -81,7 +90,7 @@ export function buildStsChecklistLinkRows(operationRef) {
     return {
       code: formNo,
       name: form.title,
-      url: stsChecklistExternalUrl(formNo, operationRef),
+      url: form.directUrl || stsChecklistExternalUrl(formNo, operationRef),
     };
   }).filter(Boolean);
 }

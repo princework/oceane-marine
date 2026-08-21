@@ -206,6 +206,26 @@ test("each LOA is attributed to the vessel named above it", () => {
   assert.equal(fields.operationType, "At Anchor");
 });
 
+test("LOA is attributed to vessels labelled 'CHS Name:' / 'MS Name:'", () => {
+  const fields = extractFieldsDeterministically({
+    subject: "",
+    bodyText: [
+      "CHS Name: MV Ocean Star",
+      "Type of Vessel (CHS): Crude Oil Tanker",
+      "LOA (CHS): 274.00 m",
+      "MS Name: MT Sea Falcon",
+      "Type of Vessel (MS): Crude Oil Tanker",
+      "LOA (MS): 228.50 m",
+    ].join("\n"),
+    options: OPTIONS,
+  });
+
+  assert.equal(fields.chs, "Ocean Star");
+  assert.equal(fields.loaCHS, "274.00");
+  assert.equal(fields.ms, "Sea Falcon");
+  assert.equal(fields.loaMS, "228.50");
+});
+
 test("an LOA before any vessel line is ignored rather than guessed", () => {
   const fields = extractFieldsDeterministically({
     subject: "",

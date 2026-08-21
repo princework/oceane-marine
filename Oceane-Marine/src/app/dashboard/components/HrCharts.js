@@ -7,6 +7,8 @@ import {
   DashboardHorizontalBarChart,
 } from "./charts/DashboardChartPrimitives";
 
+const OIL_MAJOR_COLORS = ["#10b981", "#f59e0b", "#8b5cf6"];
+
 export default function HrCharts() {
   const router = useRouter();
   const [stats, setStats] = useState(null);
@@ -201,19 +203,59 @@ export default function HrCharts() {
           )}
         </div>
 
-        {/* Oil Majors by Status - Horizontal bars */}
-        <div className="rounded-xl md:rounded-2xl border border-white/20 bg-gradient-to-br from-slate-900/95 to-slate-800/95 backdrop-blur-md shadow-2xl p-3 sm:p-4 md:p-6">
-          <h2 className="text-sm sm:text-base md:text-lg font-bold text-white mb-3 md:mb-4">
-            Oil Majors by Status
-          </h2>
+        {/* Oil Majors by Status - Horizontal bars + status breakdown footer */}
+        <div className="flex flex-col rounded-xl md:rounded-2xl border border-white/20 bg-gradient-to-br from-slate-900/95 to-slate-800/95 backdrop-blur-md shadow-2xl p-3 sm:p-4 md:p-6">
+          <div className="flex items-baseline justify-between mb-3 md:mb-4">
+            <h2 className="text-sm sm:text-base md:text-lg font-bold text-white">
+              Oil Majors by Status
+            </h2>
+            {oilMajorStatusData.length > 0 && (
+              <span className="text-[11px] sm:text-xs text-slate-400">
+                {stats.totalOilMajors} total
+              </span>
+            )}
+          </div>
           {oilMajorStatusData.length > 0 ? (
-            <DashboardHorizontalBarChart
-              labels={oilMajorStatusData.map((d) => d.name)}
-              data={oilMajorStatusData.map((d) => d.count)}
-              colors={["#10b981", "#f59e0b", "#8b5cf6"]}
-            />
+            <>
+              <DashboardHorizontalBarChart
+                labels={oilMajorStatusData.map((d) => d.name)}
+                data={oilMajorStatusData.map((d) => d.count)}
+                colors={OIL_MAJOR_COLORS}
+              />
+              <div className="mt-auto grid grid-cols-3 gap-2 pt-4 border-t border-white/10">
+                {oilMajorStatusData.map((d, i) => {
+                  const pct = stats.totalOilMajors
+                    ? Math.round((d.count / stats.totalOilMajors) * 100)
+                    : 0;
+                  const color = OIL_MAJOR_COLORS[i % OIL_MAJOR_COLORS.length];
+                  return (
+                    <div
+                      key={d.name}
+                      title={d.name}
+                      className="rounded-lg bg-white/5 border border-white/10 px-2 py-2 text-center"
+                    >
+                      <div className="flex items-center justify-center gap-1.5 mb-1">
+                        <span
+                          className="h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{ background: color }}
+                        />
+                        <span className="text-[9px] sm:text-[10px] text-slate-400 truncate">
+                          {d.name}
+                        </span>
+                      </div>
+                      <p className="text-sm sm:text-base font-bold text-white">
+                        {d.count}{" "}
+                        <span className="text-[10px] font-medium text-slate-400">({pct}%)</span>
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           ) : (
-            <div className="text-center py-8 text-slate-400 text-sm">No oil major data</div>
+            <div className="flex-1 flex items-center justify-center text-slate-400 text-sm py-8">
+              No oil major data
+            </div>
           )}
         </div>
 

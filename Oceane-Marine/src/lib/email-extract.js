@@ -527,8 +527,8 @@ function matchLabelledValue(text, labels, clean) {
    used to say — corrected per the actual convention this app's clients use.
    Matches either a labelled value on the line ("Mother Vessel: MT X") or the label alone
    as its own heading line ("Mother Vessel", with details following on later lines). */
-const CHS_LABEL = /\b(?:chs|child|daughter|sister|discharging)\b\s*(?:vessel|ship)?\s*(?:[:\-–—=]|$)/i;
-const MS_LABEL = /\b(?:ms|mother|receiving)\b\s*(?:vessel|ship)?\s*(?:[:\-–—=]|$)/i;
+const CHS_LABEL = /\b(?:chs|child|daughter|sister|discharging)\b\s*(?:vessel|ship|name)?\s*(?:[:\-–—=]|$)/i;
+const MS_LABEL = /\b(?:ms|mother|receiving)\b\s*(?:vessel|ship|name)?\s*(?:[:\-–—=]|$)/i;
 const LOA_LINE = /\bloa\b[^:\-–—=\n]*[:\-–—=]\s*([\d.,\s]+)/i;
 
 /**
