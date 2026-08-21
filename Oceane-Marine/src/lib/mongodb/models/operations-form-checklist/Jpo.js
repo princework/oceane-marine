@@ -7,6 +7,12 @@ const JpoSchema = new mongoose.Schema(
       locationId: { type: mongoose.Schema.Types.ObjectId, ref: "Location" },
       name: { type: String },
     },
+    /** STS Operation this JPO document belongs to (StsOperation.Operation_Ref_No) */
+    operationRef: {
+      type: String,
+      trim: true,
+      index: true,
+    },
     formCode: {
       type: String,
       unique: true,

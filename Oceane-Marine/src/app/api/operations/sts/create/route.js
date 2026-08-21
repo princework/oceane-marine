@@ -3,6 +3,8 @@ import { getSessionUser } from "@/lib/auth/getSessionUser";
 import { connectDB } from "@/lib/config/connection";
 import StsOperation from "@/lib/mongodb/models/sts-documentation/StsOperation";
 import Equipment from "@/lib/mongodb/models/pms/Equipment";
+import Accessories from "@/lib/mongodb/models/pms/Accessories";
+import MooringMaster from "@/lib/mongodb/models/MooringMaster";
 import { buildStsCreateDocument } from "@/lib/operations/stsCreatePayload";
 import {
   EQUIPMENT_SOURCES,
@@ -146,8 +148,8 @@ export async function POST(req) {
 
       equipmentUnits = equipmentIds.map((id) => resolved.get(id));
 
-      // Primary equipment committed to another operation stays unavailable —
-      // pre-existing rule, kept. Accessories have no equivalent in-use flag.
+      // Equipment or accessory already committed to another operation stays
+      // unavailable — primary equipment via `isInUse`, accessories via `putInUse`.
       const inUse = equipmentUnits.filter((unit) => unit.isInUse);
       if (inUse.length > 0) {
         return NextResponse.json(
@@ -246,8 +248,6 @@ export async function POST(req) {
     /* =====================
        LOCK EQUIPMENTS
     ====================== */
-    // Primary equipment only — accessories have no in-use flag, and passing
-    // their ids to the Equipment collection would just match nothing.
     const primaryEquipmentIds = equipmentUnits
       .filter((unit) => unit.source === EQUIPMENT_SOURCES.PRIMARY)
       .map((unit) => unit.id);
@@ -260,6 +260,33 @@ export async function POST(req) {
           lastUsedAt: new Date(),
         }
       );
+    }
+
+    /* =====================
+       LOCK ACCESSORIES
+    ====================== */
+    const accessoryIds = equipmentUnits
+      .filter((unit) => unit.source === EQUIPMENT_SOURCES.ACCESSORY)
+      .map((unit) => unit.id);
+
+    if (accessoryIds.length > 0) {
+      await Accessories.updateMany(
+        { _id: { $in: accessoryIds } },
+        { isInUse: true }
+      );
+    }
+
+    /* =====================
+       LOCK MOORING MASTER
+    ====================== */
+    // Mirrors the equipment lock above so the master no longer appears in the
+    // "AVAILABLE" pool other operations pick from. Released by
+    // releaseOperationResources() when the operation completes.
+    if (createDoc.mooringMaster) {
+      await MooringMaster.findByIdAndUpdate(createDoc.mooringMaster, {
+        availabilityStatus: "ASSIGNED",
+        currentOperation: stsOperation._id,
+      });
     }
 
     return NextResponse.json(

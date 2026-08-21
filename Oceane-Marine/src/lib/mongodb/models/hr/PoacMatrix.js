@@ -11,6 +11,12 @@ const poacMatrixRowSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  /** POAC is the OCIMF regulatory name for the same person Operations calls "Mooring Master". */
+  mooringMasterId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "MooringMaster",
+    default: null,
+  },
   poacName: {
     type: String,
     required: true,

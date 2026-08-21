@@ -34,20 +34,19 @@ export async function GET(req) {
     }
 
     if (year) {
+      // Not filtered by status: the Drill Report page needs to see
+      // Pending Approval / Rejected plans too, so approvers can act on them
+      // in-app instead of only via the emailed review link.
       const plan = await DrillPlan.findOne({
         ...archivedFilter,
         year: Number.parseInt(year, 10),
-        status: "Approved",
       }).sort({ createdAt: -1 });
 
-      if (!plan) {
-        return NextResponse.json(
-          { success: false, error: "No approved drill plan found for this year" },
-          { status: 404 }
-        );
-      }
-
-      return NextResponse.json({ success: true, data: plan });
+      return NextResponse.json({
+        success: true,
+        data: plan || null,
+        message: plan ? "Drill plan found" : "No drill plan for this year",
+      });
     }
 
     const plans = await DrillPlan.find({

@@ -53,7 +53,7 @@ export function defineOpsOfd018Job(agenda) {
 
             // ==================== DELETE OLD PHYSICAL FILE ====================
             // Find existing document to get old file path
-            const operation = await Operation.findOne({ Operation_Ref_No: operationRef })
+            const operation = await Operation.findOne({ Operation_Ref_No: operationRef, isLatest: true })
                 .select("documents")
                 .lean();
 
@@ -77,7 +77,7 @@ export function defineOpsOfd018Job(agenda) {
 
             // ==================== REMOVE OLD DOCUMENT ENTRY FROM DB ====================
             await Operation.updateOne(
-                { Operation_Ref_No: operationRef },
+                { Operation_Ref_No: operationRef, isLatest: true },
                 { $pull: { documents: { documentType: DOCUMENT_TYPE } } }
             );
 
@@ -92,7 +92,7 @@ export function defineOpsOfd018Job(agenda) {
             };
 
             await Operation.updateOne(
-                { Operation_Ref_No: operationRef },
+                { Operation_Ref_No: operationRef, isLatest: true },
                 { $push: { documents: documentEntry } }
             );
 
@@ -105,7 +105,7 @@ export function defineOpsOfd018Job(agenda) {
             // Update document status to GENERATED
             const updateResult = await Operation.updateOne(
                 {
-                    Operation_Ref_No: operationRef,
+                    Operation_Ref_No: operationRef, isLatest: true,
                     "documents.documentType": DOCUMENT_TYPE,
                 },
                 {
@@ -122,7 +122,7 @@ export function defineOpsOfd018Job(agenda) {
             }
 
             // Verify document was saved
-            const operationForVerification = await Operation.findOne({ Operation_Ref_No: operationRef })
+            const operationForVerification = await Operation.findOne({ Operation_Ref_No: operationRef, isLatest: true })
                 .select("documents")
                 .lean();
 
@@ -149,7 +149,7 @@ export function defineOpsOfd018Job(agenda) {
             try {
                 await Operation.updateOne(
                     {
-                        Operation_Ref_No: operationRef,
+                        Operation_Ref_No: operationRef, isLatest: true,
                         "documents.documentType": DOCUMENT_TYPE,
                     },
                     {

@@ -1,3 +1,5 @@
+import { renderEmailShell, emailInfoRow } from "@/lib/services/email/emailShell";
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -41,44 +43,35 @@ export function buildPmsWarehouseEstimatedEndOverdueEmail({
     "Your prompt attention to this matter is highly appreciated to maintain accurate warehouse management records.",
     "",
     "Best regards,",
-    "Oceane Group",
+    "Helios Tech Labs",
     "",
     "This is an automated email. Please do not reply.",
   ].join("\n");
 
-  const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8" /></head>
-<body style="margin:0;padding:24px;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.55;color:#1e293b;background:#f8fafc;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;">
-    <tr>
-      <td style="padding:28px 28px 8px;">
+  const html = renderEmailShell({
+    eyebrow: "PMS — Warehouse",
+    title: "Estimated end date exceeded",
+    preheader: `${equip} at ${loc} was scheduled to end on ${endD} — overdue by more than 2 days.`,
+    bodyHtml: `
         <p style="margin:0 0 16px;">Dear Team,</p>
-        <p style="margin:0 0 16px;">
-          This is an automated notification that the <strong>${escapeHtml(endD)}</strong> for
-          <strong>${escapeHtml(equip)}</strong>, <strong>${escapeHtml(loc)}</strong>, scheduled on
-          <strong>${escapeHtml(endD)}</strong>, has been exceeded by more than 2 days.
+        <p style="margin:0 0 18px;">
+          This is an automated notification that the estimated end date for the item below has been exceeded by more than 2 days.
         </p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 4px;background-color:#f8fafc;border-radius:8px;">
+          <tr><td style="padding:14px 18px;">
+            ${emailInfoRow("Equipment", escapeHtml(equip))}
+            ${emailInfoRow("Location", escapeHtml(loc))}
+            ${emailInfoRow("Estimated End Date", escapeHtml(endD))}
+          </td></tr>
+        </table>
         <p style="margin:0 0 16px;">
           Kindly review the status of this activity and take the necessary action. If the task has been completed,
           please update the system accordingly. If still in progress, ensure the timeline is revised and updated.
         </p>
-        <p style="margin:0 0 16px;">
+        <p style="margin:0;">
           Your prompt attention to this matter is highly appreciated to maintain accurate warehouse management records.
-        </p>
-        <p style="margin:0 0 16px;">
-          Best regards,<br />
-          <strong>Oceane Group</strong>
-        </p>
-        <p style="margin:0;font-size:13px;color:#64748b;">
-          This is an automated email. Please do not reply.
-        </p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`.trim();
+        </p>`,
+  });
 
   return { subject, html, text };
 }

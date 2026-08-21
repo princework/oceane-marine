@@ -52,7 +52,7 @@ export function defineDeclarationOfSeaJob(agenda) {
             }
 
             // ==================== DELETE OLD PHYSICAL FILE ====================
-            const operation = await Operation.findOne({ Operation_Ref_No: operationRef })
+            const operation = await Operation.findOne({ Operation_Ref_No: operationRef, isLatest: true })
                 .select("documents")
                 .lean();
 
@@ -81,7 +81,7 @@ export function defineDeclarationOfSeaJob(agenda) {
             // ==================== REMOVE OLD DOCUMENT ENTRY FROM DB ====================
             if (operation) {
                 const pullResult = await Operation.updateOne(
-                    { Operation_Ref_No: operationRef },
+                    { Operation_Ref_No: operationRef, isLatest: true },
                     { $pull: { documents: { documentType: DOCUMENT_TYPE } } }
                 );
                 console.log(`🗑️ Pull old doc entry: matched=${pullResult.matchedCount}, modified=${pullResult.modifiedCount}`);
@@ -99,7 +99,7 @@ export function defineDeclarationOfSeaJob(agenda) {
                 };
 
                 const pushResult = await Operation.updateOne(
-                    { Operation_Ref_No: operationRef },
+                    { Operation_Ref_No: operationRef, isLatest: true },
                     { $push: { documents: documentEntry } }
                 );
 
@@ -122,7 +122,7 @@ export function defineDeclarationOfSeaJob(agenda) {
             if (operation) {
                 const updateResult = await Operation.updateOne(
                     {
-                        Operation_Ref_No: operationRef,
+                        Operation_Ref_No: operationRef, isLatest: true,
                         "documents.documentType": DOCUMENT_TYPE,
                     },
                     {
@@ -137,7 +137,7 @@ export function defineDeclarationOfSeaJob(agenda) {
                 if (updateResult.matchedCount === 0) {
                     console.warn("⚠️ No document entry found to update status - adding with GENERATED status directly");
                     await Operation.updateOne(
-                        { Operation_Ref_No: operationRef },
+                        { Operation_Ref_No: operationRef, isLatest: true },
                         {
                             $push: {
                                 documents: {
@@ -156,7 +156,7 @@ export function defineDeclarationOfSeaJob(agenda) {
                 }
 
                 // ==================== VERIFY DOCUMENT WAS SAVED ====================
-                const operationForVerification = await Operation.findOne({ Operation_Ref_No: operationRef })
+                const operationForVerification = await Operation.findOne({ Operation_Ref_No: operationRef, isLatest: true })
                     .select("documents")
                     .lean();
 
@@ -185,7 +185,7 @@ export function defineDeclarationOfSeaJob(agenda) {
             try {
                 await Operation.updateOne(
                     {
-                        Operation_Ref_No: operationRef,
+                        Operation_Ref_No: operationRef, isLatest: true,
                         "documents.documentType": DOCUMENT_TYPE,
                     },
                     {

@@ -315,6 +315,10 @@ export default function EditOperationPage() {
         const remarksInput = formRef.current.querySelector('textarea[name="remarks"]');
         if (remarksInput) remarksInput.value = op.remarks;
       }
+      if (op.description) {
+        const descriptionInput = formRef.current.querySelector('textarea[name="description"]');
+        if (descriptionInput) descriptionInput.value = op.description;
+      }
 
       // SelectField values come from defaultValue; still load location-dependent data
       if (op.location) {
@@ -404,6 +408,13 @@ export default function EditOperationPage() {
       const cargoId = formData.get("typeOfCargo");
       if (!cargoId || cargoId === "Select") {
         formData.delete("typeOfCargo");
+      }
+
+      // Empty/unselected enum fields must not reach the server as "" — Mongoose
+      // rejects an empty string against an enum even when the field is optional.
+      const operationTypeValue = formData.get("operationType");
+      if (!operationTypeValue || operationTypeValue === "Select") {
+        formData.delete("operationType");
       }
 
       // Filter out empty vessel type fields
@@ -718,12 +729,26 @@ export default function EditOperationPage() {
               <SelectField
                 label="Mooring Master"
                 loading={loadingMasters}
-                options={[
-                  { label: "Select", value: "" },
-                  ...mooringMasters
-                    .filter((m) => m.availabilityStatus === "AVAILABLE")
-                    .map((m) => ({ label: m.name, value: m._id })),
-                ]}
+                options={(() => {
+                  const currentId = operationData?.mooringMaster
+                    ? String(operationData.mooringMaster._id ?? operationData.mooringMaster)
+                    : "";
+                  // Available masters, plus this operation's own current master
+                  // (would otherwise be filtered out as ASSIGNED to itself).
+                  const eligible = mooringMasters.filter(
+                    (m) => m.availabilityStatus === "AVAILABLE" || String(m._id) === currentId
+                  );
+                  return [
+                    { label: "Select", value: "" },
+                    ...eligible.map((m) => ({
+                      label: m.poacCompliant
+                        ? m.name
+                        : `${m.name} — ⚠ ${m.poacIssues?.[0] || "documents incomplete"}`,
+                      value: m._id,
+                      warn: !m.poacCompliant,
+                    })),
+                  ];
+                })()}
                 name="mooringMaster"
                 defaultValue={
                   operationData?.mooringMaster
@@ -1169,6 +1194,11 @@ export default function EditOperationPage() {
                 name="remarks"
               />
             </div>
+            <TextAreaField
+              label="Description"
+              placeholder="Other details from the nomination with no field of their own — vessel flag, cargo grade, capacities, requested support, permits, etc."
+              name="description"
+            />
 
             <StsDocumentationMultiUpload
               key={`${operationData?._id || "op"}-docs`}

@@ -2,6 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import {
+  DashboardBarChart,
+  DashboardDoughnutChart,
+  DashboardLineChart,
+} from "./charts/DashboardChartPrimitives";
 
 const ROUTES = {
   dueDiligence: "/qhse/due-diligence-subconstructor/due-diligence-questionnaire/questionnaire-list-admin",
@@ -383,46 +388,14 @@ export default function QHSECharts() {
               <h2 className="text-sm sm:text-base md:text-lg font-bold text-white mb-3 md:mb-4">
                 Near Miss Reports (Quarter-wise)
               </h2>
-              <div className="h-48 sm:h-64 md:h-80 flex items-end justify-around gap-1 sm:gap-2 px-2 sm:px-4">
-                {barChartData.labels.map((label, idx) => {
-                  const value = barChartData.datasets[0].data[idx];
-                  const maxValue = Math.max(...barChartData.datasets[0].data, 1);
-                  // Calculate height: if value > 0, show proportional height, otherwise show minimum 4px
-                  const height = value > 0 
-                    ? Math.max((value / maxValue) * 100, 8) 
-                    : 2;
-                  return (
-                    <div
-                      key={label}
-                      className="flex-1 flex flex-col items-center gap-2"
-                    >
-                      <div className="w-full relative" style={{ height: "100%" }}>
-                        <div
-                          className={`w-full rounded-t-lg relative transition-all ${
-                            value > 0 
-                              ? "bg-gradient-to-t from-blue-500 to-blue-400" 
-                              : "bg-white/10"
-                          }`}
-                          style={{ 
-                            height: `${height}%`, 
-                            minHeight: value > 0 ? "8px" : "2px" 
-                          }}
-                        >
-                          {value > 0 && (
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-blue-600 to-blue-500 rounded-t-lg h-full shadow-lg shadow-blue-500/30"></div>
-                          )}
-                        </div>
-                        <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-white whitespace-nowrap">
-                          {value}
-                        </span>
-                      </div>
-                      <span className="text-xs font-semibold text-slate-300">
-                        {label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+              <DashboardBarChart
+                labels={barChartData.labels}
+                data={barChartData.datasets[0].data}
+                color="#3b82f6"
+                hoverColor="#60a5fa"
+                unitLabel="reports"
+                className="h-48 sm:h-64 md:h-80"
+              />
             </div>
 
             {/* Doughnut Chart - Due Diligence Status */}
@@ -436,86 +409,12 @@ export default function QHSECharts() {
               <h2 className="text-sm sm:text-base md:text-lg font-bold text-white mb-3 md:mb-4">
                 Due Diligence Status
               </h2>
-              <div className="h-64 sm:h-72 md:h-80 flex flex-col items-center justify-center gap-3 md:gap-4">
-                <div className="relative w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72">
-                  <svg
-                    viewBox="0 0 100 100"
-                    className="transform -rotate-90 w-full h-full"
-                  >
-                    {(() => {
-                      const total = doughnutChartData.datasets[0].data.reduce(
-                        (a, b) => a + b,
-                        0
-                      );
-                      let currentAngle = 0;
-                      return doughnutChartData.datasets[0].data.map(
-                        (value, idx) => {
-                          const percentage =
-                            total > 0 ? (value / total) * 100 : 0;
-                          const angle = (percentage / 100) * 360;
-                          const startAngle = currentAngle;
-                          currentAngle += angle;
-                          const endAngle = currentAngle;
-                          const largeArcFlag = angle > 180 ? 1 : 0;
-                          const x1 =
-                            50 + 40 * Math.cos((startAngle * Math.PI) / 180);
-                          const y1 =
-                            50 + 40 * Math.sin((startAngle * Math.PI) / 180);
-                          const x2 =
-                            50 + 40 * Math.cos((endAngle * Math.PI) / 180);
-                          const y2 =
-                            50 + 40 * Math.sin((endAngle * Math.PI) / 180);
-                          const colors = [
-                            "#fb923c",
-                            "#8b5cf6",
-                            "#3b82f6",
-                            "#ef4444",
-                          ];
-                          return (
-                            <path
-                              key={idx}
-                              d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArcFlag} 1 ${x2} ${y2} Z`}
-                              fill={colors[idx] || "#6b7280"}
-                              stroke="rgba(0, 0, 0, 0.3)"
-                              strokeWidth="1"
-                            />
-                          );
-                        }
-                      );
-                    })()}
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
-                        {doughnutChartData.datasets[0].data.reduce(
-                          (a, b) => a + b,
-                          0
-                        )}
-                      </p>
-                      <p className="text-xs sm:text-sm text-slate-300">Total</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2 sm:gap-3 justify-center">
-                  {doughnutChartData.labels.map((label, idx) => {
-                    const value = doughnutChartData.datasets[0].data[idx];
-                    const colors = ["#fb923c", "#8b5cf6", "#3b82f6", "#ef4444"];
-                    return (
-                      <div key={label} className="flex items-center gap-1.5 sm:gap-2">
-                        <div
-                          className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0"
-                          style={{
-                            backgroundColor: colors[idx] || "#6b7280",
-                          }}
-                        ></div>
-                        <span className="text-[10px] sm:text-xs text-slate-300">
-                          {label}: {value}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <DashboardDoughnutChart
+                labels={doughnutChartData.labels}
+                data={doughnutChartData.datasets[0].data}
+                colors={["#fb923c", "#8b5cf6", "#3b82f6", "#ef4444"]}
+                className="h-64 sm:h-72 md:h-80"
+              />
             </div>
 
           </div>
@@ -531,57 +430,17 @@ export default function QHSECharts() {
               className="rounded-xl md:rounded-2xl border border-white/20 bg-gradient-to-br from-slate-900/95 to-slate-800/95 backdrop-blur-md shadow-2xl p-3 sm:p-4 md:p-6 cursor-pointer hover:border-sky-500/40 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500/50"
             >
               <h2 className="text-sm sm:text-base md:text-lg font-bold text-white mb-3 md:mb-4">Best Practices</h2>
-              <div className="h-64 sm:h-72 md:h-80 flex flex-col items-center justify-center gap-3 md:gap-4">
-                <div className="relative w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72">
-                  <svg viewBox="0 0 100 100" className="transform -rotate-90 w-full h-full">
-                    {(() => {
-                      const q = bestPracticesByQuarter;
-                      const values = [q.Q1, q.Q2, q.Q3, q.Q4];
-                      const totalVal = values.reduce((a, b) => a + b, 0);
-                      let currentAngle = 0;
-                      return values.map((value, idx) => {
-                        const percentage = totalVal > 0 ? (value / totalVal) * 100 : 0;
-                        const angle = (percentage / 100) * 360;
-                        const startAngle = currentAngle;
-                        currentAngle += angle;
-                        const endAngle = currentAngle;
-                        const largeArcFlag = angle > 180 ? 1 : 0;
-                        const x1 = 50 + 40 * Math.cos((startAngle * Math.PI) / 180);
-                        const y1 = 50 + 40 * Math.sin((startAngle * Math.PI) / 180);
-                        const x2 = 50 + 40 * Math.cos((endAngle * Math.PI) / 180);
-                        const y2 = 50 + 40 * Math.sin((endAngle * Math.PI) / 180);
-                        return (
-                          <path
-                            key={idx}
-                            d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArcFlag} 1 ${x2} ${y2} Z`}
-                            fill={BEST_PRACTICE_COLORS[idx] || "#6b7280"}
-                            stroke="rgba(0, 0, 0, 0.3)"
-                            strokeWidth="1"
-                          />
-                        );
-                      });
-                    })()}
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">{bestPracticesTotal}</p>
-                      <p className="text-xs sm:text-sm text-slate-300">Total</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2 sm:gap-3 justify-center">
-                  {["Q1", "Q2", "Q3", "Q4"].map((label, idx) => {
-                    const value = [bestPracticesByQuarter.Q1, bestPracticesByQuarter.Q2, bestPracticesByQuarter.Q3, bestPracticesByQuarter.Q4][idx];
-                    const pct = bestPracticesTotal > 0 ? ((value / bestPracticesTotal) * 100).toFixed(1) : "0";
-                    return (
-                      <div key={label} className="flex items-center gap-1.5 sm:gap-2">
-                        <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full flex-shrink-0" style={{ backgroundColor: BEST_PRACTICE_COLORS[idx] }} />
-                        <span className="text-[10px] sm:text-xs text-slate-300">{label}: {value} ({pct}%)</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <DashboardDoughnutChart
+                labels={["Q1", "Q2", "Q3", "Q4"]}
+                data={[
+                  bestPracticesByQuarter.Q1,
+                  bestPracticesByQuarter.Q2,
+                  bestPracticesByQuarter.Q3,
+                  bestPracticesByQuarter.Q4,
+                ]}
+                colors={BEST_PRACTICE_COLORS}
+                className="h-64 sm:h-72 md:h-80"
+              />
             </div>
           </div>
 
@@ -602,137 +461,12 @@ export default function QHSECharts() {
                   <span className="text-[10px] sm:text-xs text-slate-300">By Location</span>
                 </div>
               </div>
-              <div className="h-56 sm:h-72 md:h-96 relative pb-4 sm:pb-8 pt-2">
-                <svg viewBox="0 0 1000 350" className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-                  <defs>
-                    <linearGradient id="lineGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="rgba(59, 130, 246, 0.4)" />
-                      <stop offset="50%" stopColor="rgba(59, 130, 246, 0.2)" />
-                      <stop offset="100%" stopColor="rgba(59, 130, 246, 0.05)" />
-                    </linearGradient>
-                    <filter id="glow">
-                      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                      <feMerge>
-                        <feMergeNode in="coloredBlur"/>
-                        <feMergeNode in="SourceGraphic"/>
-                      </feMerge>
-                    </filter>
-                  </defs>
-                  
-                  {/* Grid lines */}
-                  {[0, 1, 2, 3, 4, 5].map((i) => {
-                    const y = 40 + (i * 50);
-                    return (
-                      <line
-                        key={i}
-                        x1="80"
-                        y1={y}
-                        x2="920"
-                        y2={y}
-                        stroke="rgba(255, 255, 255, 0.05)"
-                        strokeWidth="1"
-                      />
-                    );
-                  })}
-                  
-                  {/* Background fill area */}
-                  {(() => {
-                    const data = lineChartData.datasets[0].data;
-                    const maxValue = Math.max(...data, 1);
-                    const chartHeight = 250;
-                    const chartTop = 40;
-                    const points = data.map((value, idx) => {
-                      const x = 80 + (idx / (data.length - 1)) * 840;
-                      const y = chartTop + chartHeight - (value / maxValue) * chartHeight;
-                      return `${x},${y}`;
-                    }).join(" ");
-                    const bottomY = chartTop + chartHeight;
-                    return (
-                      <polygon
-                        points={`80,${bottomY} ${points} 920,${bottomY}`}
-                        fill="url(#lineGradient)"
-                      />
-                    );
-                  })()}
-                  
-                  {/* Line */}
-                  <polyline
-                    points={lineChartData.datasets[0].data.map((value, idx) => {
-                      const maxValue = Math.max(...lineChartData.datasets[0].data, 1);
-                      const chartHeight = 250;
-                      const chartTop = 40;
-                      const x = 80 + (idx / (lineChartData.datasets[0].data.length - 1)) * 840;
-                      const y = chartTop + chartHeight - (value / maxValue) * chartHeight;
-                      return `${x},${y}`;
-                    }).join(" ")}
-                    fill="none"
-                    stroke="rgba(59, 130, 246, 1)"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    filter="url(#glow)"
-                  />
-                  
-                  {/* Data points */}
-                  {lineChartData.datasets[0].data.map((value, idx) => {
-                    const maxValue = Math.max(...lineChartData.datasets[0].data, 1);
-                    const chartHeight = 250;
-                    const chartTop = 40;
-                    const x = 80 + (idx / (lineChartData.datasets[0].data.length - 1)) * 840;
-                    const y = chartTop + chartHeight - (value / maxValue) * chartHeight;
-                    return (
-                      <g key={idx}>
-                        <circle
-                          cx={x}
-                          cy={y}
-                          r="9"
-                          fill="rgba(59, 130, 246, 1)"
-                          stroke="#fff"
-                          strokeWidth="3"
-                          className="drop-shadow-lg"
-                        />
-                        <circle
-                          cx={x}
-                          cy={y}
-                          r="5"
-                          fill="#fff"
-                        />
-                        <text
-                          x={x}
-                          y={y - 25}
-                          textAnchor="middle"
-                          fill="rgba(255, 255, 255, 0.95)"
-                          fontSize="15"
-                          fontWeight="700"
-                          className="drop-shadow-md"
-                        >
-                          {value}
-                        </text>
-                      </g>
-                    );
-                  })}
-                  
-                  {/* X-axis labels */}
-                  {lineChartData.labels.map((label, idx) => {
-                    const x = 80 + (idx / (lineChartData.labels.length - 1)) * 840;
-                    return (
-                      <g key={label}>
-                        <text
-                          x={x}
-                          y="320"
-                          textAnchor="middle"
-                          fill="rgba(255, 255, 255, 0.8)"
-                          fontSize="13"
-                          fontWeight="600"
-                          className="uppercase tracking-wide"
-                        >
-                          {label}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </svg>
-              </div>
+              <DashboardLineChart
+                labels={lineChartData.labels}
+                data={lineChartData.datasets[0].data}
+                color="#3b82f6"
+                className="h-56 sm:h-72 md:h-96"
+              />
             </div>
           </div>
         </>

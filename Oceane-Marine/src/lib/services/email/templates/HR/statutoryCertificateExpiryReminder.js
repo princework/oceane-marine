@@ -1,3 +1,5 @@
+import { renderEmailShell, emailInfoRow } from "@/lib/services/email/emailShell";
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -38,43 +40,36 @@ export function buildStatutoryCertificateExpiryReminderEmail({
     "Thank you for your prompt attention to this matter.",
     "",
     "Best regards,",
-    "Oceane Group",
+    "Helios Tech Labs",
     "",
     "This is an automated email. Please do not reply.",
   ].join("\n");
 
-  const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8" /></head>
-<body style="margin:0;padding:24px;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.55;color:#1e293b;background:#f8fafc;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;">
-    <tr>
-      <td style="padding:28px 28px 8px;">
+  const html = renderEmailShell({
+    eyebrow: "HR — Certification Reminder",
+    title: "Statutory certificate expiring soon",
+    preheader: `${name} is due to expire on ${when}.`,
+    bodyHtml: `
         <p style="margin:0 0 16px;">Dear Team,</p>
-        <p style="margin:0 0 16px;">
+        <p style="margin:0 0 18px;">
           This is an automated reminder that the statutory certificate
           <strong>${escapeHtml(name)}</strong> is due to expire on <strong>${escapeHtml(when)}</strong>.
         </p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background-color:#f8fafc;border-radius:8px;">
+          <tr><td style="padding:14px 18px;">
+            ${emailInfoRow("Certificate", escapeHtml(name))}
+            ${emailInfoRow("Expires", escapeHtml(when))}
+            ${emailInfoRow("Days Remaining", escapeHtml(String(days)))}
+          </td></tr>
+        </table>
         <p style="margin:0 0 16px;">
           Kindly take the necessary action to arrange for renewal before the expiry date to ensure compliance and avoid any operational disruptions.
         </p>
         <p style="margin:0 0 16px;">
           Please update the system once the renewal process is completed.
         </p>
-        <p style="margin:0 0 16px;">Thank you for your prompt attention to this matter.</p>
-        <p style="margin:0 0 16px;">
-          Best regards,<br />
-          <strong>Oceane Group</strong>
-        </p>
-        <p style="margin:0;font-size:13px;color:#64748b;">
-          This is an automated email. Please do not reply.
-        </p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`.trim();
+        <p style="margin:0;">Thank you for your prompt attention to this matter.</p>`,
+  });
 
   return { subject, html, text };
 }

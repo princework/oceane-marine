@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { connectDB } from "@/lib/config/connection";
 import Jpo from "@/lib/mongodb/models/operations-form-checklist/Jpo";
+import StsOperation from "@/lib/mongodb/models/sts-documentation/StsOperation";
 
 export const runtime = "nodejs";
 
@@ -21,6 +22,7 @@ export async function POST(req) {
     const date = formData.get("date");
     const uploadedByName = formData.get("uploadedBy");
     const locationId = formData.get("locationId");
+    const operationRef = formData.get("operationRef");
 
     if (!file) {
       return NextResponse.json({ error: "File is required" }, { status: 400 });
@@ -32,6 +34,21 @@ export async function POST(req) {
 
     if (!locationId) {
       return NextResponse.json({ error: "Location is required" }, { status: 400 });
+    }
+
+    if (!operationRef || !operationRef.trim()) {
+      return NextResponse.json({ error: "Operation Ref No is required" }, { status: 400 });
+    }
+
+    const operation = await StsOperation.findOne({
+      Operation_Ref_No: operationRef.trim(),
+      isLatest: true,
+    });
+    if (!operation) {
+      return NextResponse.json(
+        { error: "Selected operation could not be found" },
+        { status: 400 }
+      );
     }
 
     const { default: Location } = await import("@/lib/mongodb/models/Location");
@@ -61,13 +78,20 @@ export async function POST(req) {
     const filePath = path.join(uploadDir, uniqueFileName);
     fs.writeFileSync(filePath, buffer);
 
+    const relativeFilePath = `uploads/operations/jpo/v${nextVersion}/${uniqueFileName}`;
+
     const record = await Jpo.create({
       location: { locationId, name: locationName },
-      filePath: `uploads/operations/jpo/v${nextVersion}/${uniqueFileName}`,
+      operationRef: operationRef.trim(),
+      filePath: relativeFilePath,
       version: nextVersion,
       date: new Date(date),
       uploadedBy: { name: uploadedByName || "" },
     });
+
+    // Attach the uploaded JPO document to the operation it belongs to.
+    operation.jpo = relativeFilePath;
+    await operation.save();
 
     return NextResponse.json({
       message: "File uploaded successfully",

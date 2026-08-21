@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { Suspense } from "react";
 import Link from "next/link";
-import QhseSidebar from "../../../components/QhseSidebar";
-import SideBarSkeleton from "../../../components/SideBarSkeleton";
 import { useQhseSidebar } from "../../../QhseSidebarContext";
 import { TemplateDownloadLink } from "../../../components/TemplateDownloadLink";
 import { useQhseRole } from "@/hooks/useQhseRole";

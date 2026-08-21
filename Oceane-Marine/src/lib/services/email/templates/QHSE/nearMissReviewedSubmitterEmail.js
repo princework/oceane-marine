@@ -1,3 +1,5 @@
+import { renderEmailShell, emailInfoRow } from "@/lib/services/email/emailShell";
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -19,10 +21,14 @@ function blockToText(v) {
 function blockToHtml(v) {
   const t = displayBlock(v);
   if (t === "—") {
-    return `<p style="margin:0 0 12px;color:#64748b;font-style:italic;">—</p>`;
+    return `<p style="margin:0 0 14px;color:#94a3b8;font-style:italic;">—</p>`;
   }
   const lines = escapeHtml(t).split(/\r?\n/);
-  return `<p style="margin:0 0 12px;white-space:pre-wrap;line-height:1.5;">${lines.join("<br />")}</p>`;
+  return `<p style="margin:0 0 14px;white-space:pre-wrap;line-height:1.5;">${lines.join("<br />")}</p>`;
+}
+
+function sectionLabel(text) {
+  return `<p style="margin:18px 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:11.5px;font-weight:700;color:#c2410c;letter-spacing:0.6px;text-transform:uppercase;">${text}</p>`;
 }
 
 /**
@@ -82,60 +88,50 @@ export function buildNearMissReviewedSubmitterEmail({
     "We encourage you to continue reporting any near misses going forward, as this helps us maintain and improve safety standards across all operations.",
     "",
     "Best regards,",
-    "Oceane Group",
+    "Helios Tech Labs",
     "",
     "This is an automated email. Please do not reply.",
   ].join("\n");
 
-  const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8" /></head>
-<body style="margin:0;padding:24px;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.55;color:#1e293b;background:#f8fafc;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;">
-    <tr>
-      <td style="padding:28px 28px 8px;">
+  const html = renderEmailShell({
+    eyebrow: "QHSE — Near Miss Report",
+    title: "Your near miss report has been reviewed",
+    preheader: "Your near miss report has been reviewed and actioned.",
+    bodyHtml: `
         <p style="margin:0 0 16px;">Dear ${escapeHtml(dear)},</p>
-        <p style="margin:0 0 20px;">
+        <p style="margin:0 0 18px;">
           This is to inform you that the near miss report you submitted has been successfully reviewed.
         </p>
-        <p style="margin:0 0 6px;"><strong>Job No :</strong> ${escapeHtml(job)}</p>
-        <p style="margin:0 0 20px;"><strong>Date :</strong> ${escapeHtml(dateStr)}</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 4px;background-color:#f8fafc;border-radius:8px;">
+          <tr><td style="padding:14px 18px;">
+            ${emailInfoRow("Job No", escapeHtml(job))}
+            ${emailInfoRow("Date", escapeHtml(dateStr))}
+          </td></tr>
+        </table>
 
-        <p style="margin:16px 0 8px;font-weight:700;">Near miss Description:</p>
+        ${sectionLabel("Near Miss Description")}
         ${blockToHtml(description)}
 
-        <p style="margin:16px 0 8px;font-weight:700;">Immediate cause :</p>
+        ${sectionLabel("Immediate Cause")}
         ${blockToHtml(immediateCause)}
 
-        <p style="margin:16px 0 8px;font-weight:700;">Root cause :</p>
+        ${sectionLabel("Root Cause")}
         ${blockToHtml(rootCause)}
 
-        <p style="margin:16px 0 8px;font-weight:700;">Corrective action :</p>
+        ${sectionLabel("Corrective Action")}
         ${blockToHtml(correctiveAction)}
 
-        <p style="margin:16px 0 8px;font-weight:700;">Remarks by reviewer :</p>
+        ${sectionLabel("Remarks by Reviewer")}
         ${blockToHtml(remarksByReviewer)}
 
         <p style="margin:20px 0 16px;">
           Thank you for your proactive effort in reporting and contributing to a safer working environment.
           Appropriate actions have been taken based on your report.
         </p>
-        <p style="margin:0 0 20px;">
+        <p style="margin:0;">
           We encourage you to continue reporting any near misses going forward, as this helps us maintain and improve safety standards across all operations.
-        </p>
-        <p style="margin:0 0 16px;">
-          Best regards,<br />
-          <strong>Oceane Group</strong>
-        </p>
-        <p style="margin:0;font-size:13px;color:#64748b;">
-          This is an automated email. Please do not reply.
-        </p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`.trim();
+        </p>`,
+  });
 
   return { subject, html, text };
 }

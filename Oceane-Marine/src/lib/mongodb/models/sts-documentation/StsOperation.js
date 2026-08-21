@@ -325,6 +325,11 @@ const stsOperationSchema = new mongoose.Schema(
     ms: String,
     remarks: String,
 
+    /** Free-text catch-all for anything an email nomination states that has no
+     *  dedicated field (vessel flag, cargo grade, capacities, special requests, etc).
+     *  Populated by "Import from Email"; also editable by hand. */
+    description: String,
+
 
     /* ================= AUDIT ================= */
 
@@ -374,10 +379,10 @@ const stsOperationSchema = new mongoose.Schema(
         ref: "User"
       },
 
-      /** How the fields were read: with the model, or by deterministic matching. */
+      /** How the fields were read: with a model (Claude or OpenAI), or by deterministic matching. */
       extraction: {
         type: String,
-        enum: ["model", "deterministic", "deterministic-fallback"]
+        enum: ["model", "model-openai", "deterministic", "deterministic-fallback"]
       }
     }
 

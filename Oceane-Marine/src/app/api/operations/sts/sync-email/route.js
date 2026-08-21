@@ -37,6 +37,19 @@ const TYPE_OF_OPERATION_OPTIONS = ["Ship to Ship", "POAC", "Fender Hire", "Hose 
 /** Values hardcoded in the form's "Operation Type" dropdown; also validated on save. */
 const OPERATION_TYPE_OPTIONS = ["underway", "At Anchor"];
 
+/** Values hardcoded in the form's "Type of Vessel" dropdowns (StsOperation.vesselTypeCHS/MS enum). */
+const VESSEL_TYPE_OPTIONS = [
+  "VLCC",
+  "ULCC",
+  "Suexmax",
+  "Aframax",
+  "panamax",
+  "post-panamax",
+  "Handysize",
+  "Capezie",
+  "Supramax",
+];
+
 const PERMISSION_MESSAGE = "You do not have permission to create STS operation records.";
 
 /**
@@ -235,6 +248,7 @@ export async function POST(req) {
       operationTypes: OPERATION_TYPE_OPTIONS,
       locations: [...locationsByName.keys()],
       cargoTypes: [...cargoByName.keys()],
+      vesselTypes: VESSEL_TYPE_OPTIONS,
     };
 
     /* Uses Claude when ANTHROPIC_API_KEY is set, otherwise falls back to matching
@@ -331,9 +345,12 @@ export async function POST(req) {
         ms: fields.ms || "",
         loaCHS: fields.loaCHS || "",
         loaMS: fields.loaMS || "",
+        vesselTypeCHS: fields.vesselTypeCHS || "",
+        vesselTypeMS: fields.vesselTypeMS || "",
         client: clientResult.name || "",
         agent: agentResult.name || "",
         quantity: fields.quantity || "",
+        description: fields.description || "",
       },
       uploadedFiles,
       manualDocumentationEntries,

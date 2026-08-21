@@ -122,7 +122,6 @@ export function middleware(request) {
     "/operations",
     "/pms",
     "/qhse",
-    "/accounts",
     "/hr",
     "/admin",
   ];
@@ -142,7 +141,6 @@ export const config = {
     "/operations/:path*",
     "/pms/:path*",
     "/qhse/:path*",
-    "/accounts/:path*",
     "/hr/:path*",
     "/admin",
     "/admin/:path*",

@@ -7,7 +7,6 @@ import { useQhseSidebar } from "../../../QhseSidebarContext";
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import QhseSidebar from "../../../components/QhseSidebar";
 import { TemplateDownloadLink } from "../../../components/TemplateDownloadLink";
 
 const CONDITION_OPTIONS = ["Not Assessed", "Good", "Average", "Poor"];

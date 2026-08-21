@@ -548,7 +548,29 @@ export default function StsChecklistPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-2">
-                          {selectedOperationRef ? (
+                          {form.directUrl ? (
+                            // Fixed external link (e.g. Near Miss) — not tied to an operation ref
+                            <button
+                              onClick={() => handleCopyLink(form.directUrl, form.formNo)}
+                              className="rounded-lg bg-sky-500/20 px-2.5 py-1.5 text-[11px] font-medium text-sky-300 transition-all duration-200 hover:bg-sky-500/30 hover:text-sky-200 flex items-center gap-1.5 border border-sky-400/30 hover:border-sky-400/50 sm:px-4 sm:py-2 sm:text-sm sm:gap-2"
+                            >
+                              {copiedLink === form.formNo ? (
+                                <>
+                                  <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                  <span className="text-green-400">Link copied</span>
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                  </svg>
+                                  <span>Copy Link</span>
+                                </>
+                              )}
+                            </button>
+                          ) : selectedOperationRef ? (
                             // Show Create and Update links when operation ref is selected
                             <div className="flex flex-col gap-2">
                               <a
@@ -627,6 +649,9 @@ export default function StsChecklistPage() {
                       </td>
                       <td className="px-4 py-4 text-center align-middle">
                         <div className="flex flex-col items-stretch gap-2 sm:items-center">
+                          {!form.apiPath ? (
+                            <span className="text-[11px] text-white/40">—</span>
+                          ) : (
                           <button
                             type="button"
                             onClick={() => handleViewList(form.apiPath)}
@@ -634,7 +659,8 @@ export default function StsChecklistPage() {
                           >
                             View List
                           </button>
-                          {canUploadHardcopy && (
+                          )}
+                          {form.apiPath && canUploadHardcopy && (
                             <>
                               <button
                                 type="button"

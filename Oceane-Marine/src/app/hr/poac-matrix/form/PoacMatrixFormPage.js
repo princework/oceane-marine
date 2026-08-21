@@ -51,6 +51,7 @@ function normalizeVisaEntriesFromRow(row) {
 const createEmptyRow = (stsServiceProvider = "") => {
   const row = {
     stsServiceProvider,
+    mooringMasterId: "",
     poacName: "",
     experienceWithOceane: "",
     visaEntries: [],
@@ -82,11 +83,21 @@ export default function PoacMatrixFormPage({ onSuccess }) {
   const [existingFiles, setExistingFiles] = useState([]);
   const fileInputRefs = useRef({});
   const [locations, setLocations] = useState([]);
+  const [mooringMasters, setMooringMasters] = useState([]);
 
   useEffect(() => {
     fetch("/api/master/locations/list")
       .then((res) => res.json())
       .then((data) => setLocations(data.locations || []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    /* POAC is the OCIMF regulatory name for the same person Operations calls
+       "Mooring Master" — one master list backs both. */
+    fetch("/api/master/mooring-master/list")
+      .then((res) => res.json())
+      .then((data) => setMooringMasters(data.mooringMasters || []))
       .catch(() => {});
   }, []);
 
@@ -111,6 +122,7 @@ export default function PoacMatrixFormPage({ onSuccess }) {
               }
               const r = {
                 stsServiceProvider: row.stsServiceProvider || "",
+                mooringMasterId: row.mooringMasterId ? String(row.mooringMasterId) : "",
                 poacName: row.poacName || "",
                 experienceWithOceane: row.experienceWithOceane || "",
                 visaEntries: normalizeVisaEntriesFromRow(row),
@@ -196,6 +208,7 @@ export default function PoacMatrixFormPage({ onSuccess }) {
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         formData.append(`row_${i}_stsServiceProvider`, (row.stsServiceProvider || "").trim());
+        formData.append(`row_${i}_mooringMasterId`, row.mooringMasterId || "");
         formData.append(`row_${i}_poacName`, (row.poacName || "").trim());
         formData.append(`row_${i}_experienceWithOceane`, (row.experienceWithOceane || "").trim());
         formData.append(`row_${i}_visaEntries`, JSON.stringify(row.visaEntries || []));
@@ -431,19 +444,36 @@ export default function PoacMatrixFormPage({ onSuccess }) {
                   />
                 </div>
 
-                {/* POAC's Name */}
+                {/* POAC's Name — POAC is the OCIMF regulatory name for the same
+                    person Operations calls "Mooring Master", so this picks from
+                    the same master list rather than free text. */}
                 <div className="space-y-2">
                   <label className="block text-sm font-semibold text-white/90">
                     POAC&apos;s Name <span className="text-red-400">*</span>
                   </label>
-                  <input
-                    type="text"
-                    value={row.poacName}
-                    onChange={(e) => updateRow(rowIndex, "poacName", e.target.value)}
+                  <select
+                    value={row.mooringMasterId}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      const selected = mooringMasters.find((m) => String(m._id) === selectedId);
+                      const newRows = [...rows];
+                      newRows[rowIndex] = {
+                        ...newRows[rowIndex],
+                        mooringMasterId: selectedId,
+                        poacName: selected?.name || "",
+                      };
+                      setRows(newRows);
+                    }}
                     required
-                    className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all"
-                    placeholder="Enter POAC's Name"
-                  />
+                    className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all"
+                  >
+                    <option value="" className="bg-slate-900">Select mooring master...</option>
+                    {mooringMasters.map((m) => (
+                      <option key={m._id} value={m._id} className="bg-slate-900">
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* ── Yes/No option fields with conditional upload ── */}

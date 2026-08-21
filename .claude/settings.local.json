@@ -3,7 +3,8 @@
     "allow": [
       "Read(//tmp/**)",
       "Bash(rm -f scripts/_verify-list.mjs)",
-      "Read(//c/tmp/**)"
+      "Read(//c/tmp/**)",
+      "Bash(curl -s -X POST \"https://oceane-marine-utyx.vercel.app/api/sts-proxy/ops-ofd-001/create\" -F \"data={\\\\\"test\\\\\":true}\" -w \"\\\\n---HTTP_STATUS:%{http_code}---\\\\n\")"
     ]
   }
 }

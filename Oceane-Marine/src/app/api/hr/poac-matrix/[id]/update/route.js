@@ -117,6 +117,8 @@ export async function PUT(req, { params }) {
       if (!stsServiceProvider) break;
 
       const poacName = formData.get(`row_${rowIndex}_poacName`);
+      const mooringMasterIdRaw = formData.get(`row_${rowIndex}_mooringMasterId`);
+      const mooringMasterId = mooringMasterIdRaw && mooringMasterIdRaw.trim() ? mooringMasterIdRaw.trim() : null;
       const validPassport = formData.get(`row_${rowIndex}_validPassport`) || "No";
       const validMastersCOC = formData.get(`row_${rowIndex}_validMastersCOC`) || "No";
       const dangerousCargoEndorsementOil = formData.get(`row_${rowIndex}_dangerousCargoEndorsementOil`) || "No";
@@ -226,6 +228,7 @@ export async function PUT(req, { params }) {
 
       rowsData.push({
         stsServiceProvider: stsServiceProvider.trim(),
+        mooringMasterId,
         poacName: poacName.trim(),
         ...optionValues,
         ...optionExpiryData,

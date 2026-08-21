@@ -35,3 +35,28 @@ export async function PATCH(req, { params }) {
     return NextResponse.json({ error: "Update failed" }, { status: 500 });
   }
 }
+
+export async function DELETE(req, { params }) {
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!isNotificationsAdmin(user)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  await connectDB();
+  try {
+    const { id } = await params;
+    const doc = await Notification.findByIdAndDelete(id).lean();
+
+    if (!doc) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("DELETE /api/notifications/[id]:", err);
+    return NextResponse.json({ error: "Delete failed" }, { status: 500 });
+  }
+}

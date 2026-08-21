@@ -53,7 +53,7 @@ export function defineOpsOfd005DJob(agenda) {
 
             // ==================== DELETE OLD PHYSICAL FILE ====================
             // Find existing document to get old file path
-            const operation = await Operation.findOne({ Operation_Ref_No: operationRef })
+            const operation = await Operation.findOne({ Operation_Ref_No: operationRef, isLatest: true })
                 .select("documents")
                 .lean();
 
@@ -84,7 +84,7 @@ export function defineOpsOfd005DJob(agenda) {
             // ==================== REMOVE OLD DOCUMENT ENTRY FROM DB ====================
             if (operation) {
                 const pullResult = await Operation.updateOne(
-                    { Operation_Ref_No: operationRef },
+                    { Operation_Ref_No: operationRef, isLatest: true },
                     { $pull: { documents: { documentType: DOCUMENT_TYPE } } }
                 );
                 console.log(`🗑️ Pull old doc entry: matched=${pullResult.matchedCount}, modified=${pullResult.modifiedCount}`);
@@ -102,7 +102,7 @@ export function defineOpsOfd005DJob(agenda) {
                 };
 
                 const pushResult = await Operation.updateOne(
-                    { Operation_Ref_No: operationRef },
+                    { Operation_Ref_No: operationRef, isLatest: true },
                     { $push: { documents: documentEntry } }
                 );
 
@@ -125,7 +125,7 @@ export function defineOpsOfd005DJob(agenda) {
             if (operation) {
                 const updateResult = await Operation.updateOne(
                     {
-                        Operation_Ref_No: operationRef,
+                        Operation_Ref_No: operationRef, isLatest: true,
                         "documents.documentType": DOCUMENT_TYPE,
                     },
                     {
@@ -141,7 +141,7 @@ export function defineOpsOfd005DJob(agenda) {
                     console.warn("⚠️ No document entry found to update status - adding with GENERATED status directly");
                     // Fallback: push directly with GENERATED status
                     await Operation.updateOne(
-                        { Operation_Ref_No: operationRef },
+                        { Operation_Ref_No: operationRef, isLatest: true },
                         {
                             $push: {
                                 documents: {
@@ -160,7 +160,7 @@ export function defineOpsOfd005DJob(agenda) {
                 }
 
                 // ==================== VERIFY DOCUMENT WAS SAVED ====================
-                const operationForVerification = await Operation.findOne({ Operation_Ref_No: operationRef })
+                const operationForVerification = await Operation.findOne({ Operation_Ref_No: operationRef, isLatest: true })
                     .select("documents")
                     .lean();
 
@@ -189,7 +189,7 @@ export function defineOpsOfd005DJob(agenda) {
             try {
                 await Operation.updateOne(
                     {
-                        Operation_Ref_No: operationRef,
+                        Operation_Ref_No: operationRef, isLatest: true,
                         "documents.documentType": DOCUMENT_TYPE,
                     },
                     {

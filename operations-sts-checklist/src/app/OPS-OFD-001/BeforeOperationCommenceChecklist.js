@@ -497,7 +497,7 @@ export default function BeforeOperationCommenceChecklist() {
                     signature: extractBase64(formData.signatureBlock.signature || ''),
                     date: formData.signatureBlock.date || null,
                 },
-                status: 'DRAFT',
+                status: 'SUBMITTED',
             };
 
             const form = new FormData();

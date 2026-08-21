@@ -1,3 +1,5 @@
+import { renderEmailShell, emailInfoRow } from "@/lib/services/email/emailShell";
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -66,48 +68,36 @@ export function buildPmsEquipmentTestingReminderEmail({
     "Thank you for your cooperation.",
     "",
     "Best regards,",
-    "Oceane Group",
+    "Helios Tech Labs",
     "",
     "This is an automated email. Please do not reply.",
   ].join("\n");
 
-  const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8" /></head>
-<body style="margin:0;padding:24px;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.55;color:#1e293b;background:#f8fafc;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;">
-    <tr>
-      <td style="padding:28px 28px 8px;">
+  const html = renderEmailShell({
+    eyebrow: "PMS — Equipment Testing",
+    title: `Testing reminder — ${days} days to next test`,
+    preheader: `${name} is due for testing on ${nextD}.`,
+    bodyHtml: `
         <p style="margin:0 0 16px;">Dear Team,</p>
-        <p style="margin:0 0 16px;">
+        <p style="margin:0 0 18px;">
           This is an automated reminder for the upcoming testing schedule
           (<strong>${days}</strong> days prior to the next test date).
         </p>
-        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 20px;width:100%;font-size:15px;">
-          <tr><td style="padding:6px 0;color:#64748b;width:160px;vertical-align:top;">Equipment Name</td><td style="padding:6px 0;"><strong>${escapeHtml(name)}</strong></td></tr>
-          <tr><td style="padding:6px 0;color:#64748b;vertical-align:top;">Equipment Type</td><td style="padding:6px 0;"><strong>${escapeHtml(type)}</strong></td></tr>
-          <tr><td style="padding:6px 0;color:#64748b;vertical-align:top;">Serial code</td><td style="padding:6px 0;"><strong>${escapeHtml(serial)}</strong></td></tr>
-          <tr><td style="padding:6px 0;color:#64748b;vertical-align:top;">Equipment code</td><td style="padding:6px 0;"><strong>${escapeHtml(code)}</strong></td></tr>
-          <tr><td style="padding:6px 0;color:#64748b;vertical-align:top;">Last test date</td><td style="padding:6px 0;"><strong>${escapeHtml(lastD)}</strong></td></tr>
-          <tr><td style="padding:6px 0;color:#64748b;vertical-align:top;">Next Test date</td><td style="padding:6px 0;"><strong>${escapeHtml(nextD)}</strong></td></tr>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 18px;background-color:#f8fafc;border-radius:8px;">
+          <tr><td style="padding:14px 18px;">
+            ${emailInfoRow("Equipment Name", escapeHtml(name))}
+            ${emailInfoRow("Equipment Type", escapeHtml(type))}
+            ${emailInfoRow("Serial Code", escapeHtml(serial))}
+            ${emailInfoRow("Equipment Code", escapeHtml(code))}
+            ${emailInfoRow("Last Test Date", escapeHtml(lastD))}
+            ${emailInfoRow("Next Test Date", escapeHtml(nextD))}
+          </td></tr>
         </table>
         <p style="margin:0 0 16px;">
           Kindly send it out for testing before the next due date to ensure accurate tracking ahead of the next test date.
         </p>
-        <p style="margin:0 0 8px;">Thank you for your cooperation.</p>
-        <p style="margin:0 0 16px;">
-          Best regards,<br />
-          <strong>Oceane Group</strong>
-        </p>
-        <p style="margin:0;font-size:13px;color:#64748b;">
-          This is an automated email. Please do not reply.
-        </p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`.trim();
+        <p style="margin:0;">Thank you for your cooperation.</p>`,
+  });
 
   return { subject, html, text };
 }

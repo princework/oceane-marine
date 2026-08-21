@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/config/connection";
 import StsOperation from "@/lib/mongodb/models/sts-documentation/StsOperation";
-import Equipment from "@/lib/mongodb/models/pms/Equipment";
-import MooringMaster from "@/lib/mongodb/models/MooringMaster";
+import { releaseOperationResources } from "@/lib/operations/releaseOperationResources";
 
 export async function PATCH(req, { params }) {
   await connectDB();
@@ -23,41 +22,19 @@ export async function PATCH(req, { params }) {
         { status: 400 }
       );
     }
-    // 1. Update operation
+
+    // Release equipment + mooring master back to the pool before flipping the
+    // status, so a failure here never leaves the operation marked COMPLETED
+    // with resources still locked.
+    const releasedEquipments = await releaseOperationResources({
+      equipments: operation.equipments,
+      mooringMaster: operation.mooringMaster,
+    });
+
     operation.operationStatus = "COMPLETED";
     operation.operationEndTime = new Date();
+    operation.equipments = releasedEquipments;
     await operation.save();
-
-    // 2. Release equipments
-    for (const eq of operation.equipments || []) {
-      if (eq.status === "IN_USE") {
-        const hours = (now.getTime() - new Date(eq.startTime).getTime()) / 36e5;
-
-        // Only primary equipment carries the in-use lock that create/route.js
-        // sets. Accessories are never locked, so there's nothing to unlock —
-        // their usage entry is still closed out below.
-        if ((eq.equipmentSource || "Equipment") === "Equipment") {
-          await Equipment.findByIdAndUpdate(eq.equipment, {
-            $inc: { quantityTransferred: 1 },
-            isInUse: false,
-            lastUsedAt: new Date(),
-          });
-        }
-
-        eq.endTime = now;
-        eq.usedHours = hours;
-        eq.status = "RELEASED";
-      }
-    }
-
-    await operation.save();
-
-    // 3. Release mooring master
-    if (operation.mooringMaster) {
-      await MooringMaster.findByIdAndUpdate(operation.mooringMaster, {
-        availability: true,
-      });
-    }
 
     return NextResponse.json({
       success: true,

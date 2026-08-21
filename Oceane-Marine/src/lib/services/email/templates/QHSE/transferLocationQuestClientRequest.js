@@ -2,6 +2,8 @@
  * QHSE — Transfer Location Questionnaire request sent to the client for a Draft operation.
  */
 
+import { renderEmailShell, emailButton } from "@/lib/services/email/emailShell";
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -31,50 +33,34 @@ export function buildTransferLocationQuestClientRequestEmail({ operationRef, cli
     "This information is required before the operation can proceed.",
     "",
     "Best regards,",
-    "Oceane Group",
+    "Helios Tech Labs",
     "",
     "This is an automated email. Please do not reply.",
   ].join("\n");
 
   const linkHtml = link
-    ? `<a href="${escapeHtml(link)}" style="color:#0369a1;font-weight:600;">Link to Access</a>`
-    : escapeHtml("—");
+    ? emailButton(escapeHtml(link), "Complete Questionnaire")
+    : `<p style="margin:0 0 16px;">${escapeHtml("—")}</p>`;
 
-  const html = `
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8" /></head>
-<body style="margin:0;padding:24px;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.55;color:#1e293b;background:#f8fafc;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:8px;border:1px solid #e2e8f0;">
-    <tr>
-      <td style="padding:28px 28px 8px;">
+  const html = renderEmailShell({
+    eyebrow: "QHSE — Transfer Location Questionnaire",
+    title: `Questionnaire required for Operation ${escapeHtml(ref)}`,
+    preheader: `Please complete the Transfer Location Questionnaire for operation ${ref}.`,
+    bodyHtml: `
         <p style="margin:0 0 16px;">${escapeHtml(greeting)}</p>
         <p style="margin:0 0 16px;">
-          Please complete the Transfer Location Questionnaire for operation <strong>${escapeHtml(ref)}</strong> by clicking the link below.
+          Please complete the Transfer Location Questionnaire for operation <strong>${escapeHtml(ref)}</strong> by clicking the button below.
         </p>
-        <p style="margin:0 0 20px;">
-          ${linkHtml}
-        </p>
+        ${linkHtml}
         <p style="margin:0 0 16px;">
           This information is required before the operation can proceed.
-        </p>
-        <p style="margin:0 0 16px;">
-          Best regards,<br />
-          <strong>Oceane Group</strong>
-        </p>
-        <p style="margin:0;font-size:13px;color:#64748b;">
-          This is an automated email. Please do not reply.
-        </p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`.trim();
+        </p>`,
+  });
 
   return { subject, html, text };
 }
 
-const DEFAULT_QHSE_FORMS_BASE_URL = "https://qhse-forms.oceanemarine.com";
+const DEFAULT_QHSE_FORMS_BASE_URL = "https://oceane-marine-fgbs.vercel.app";
 
 function qhseFormsBaseUrl() {
   const fromEnv = process.env.NEXT_PUBLIC_QHSE_FORMS_BASE_URL?.trim();

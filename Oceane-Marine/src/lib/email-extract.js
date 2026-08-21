@@ -1,15 +1,19 @@
 import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 /**
  * Turning a client nomination email into STS operation data.
  *
  * Two independent halves:
- *  - `extractFieldsFromEmail` reads the prose with Claude, constrained to real dropdown values.
+ *  - `extractFieldsFromEmail(OpenAI)` reads the prose with a model, constrained to real dropdown
+ *    values. OpenAI is used when `OPENAI_API_KEY` is set; Claude is a secondary path for when
+ *    only `ANTHROPIC_API_KEY` is set instead.
  *  - `routeAttachments` files PDFs by filename only. No model involvement — a Q88 filed
  *    under the wrong vessel is worse than one left unfiled.
  */
 
 const EXTRACTION_MODEL = "claude-sonnet-4-6";
+const OPENAI_EXTRACTION_MODEL = "gpt-4.1-mini";
 const TOOL_NAME = "record_sts_nomination";
 
 const SYSTEM_PROMPT = `You read ship-to-ship (STS) transfer nomination emails from marine clients and record only what the email actually states.
@@ -21,6 +25,11 @@ Rules:
 - Quantity: return metric tonnes as a plain number string, digits only. If the email gives another unit, return null.
 - Dates and times: return ISO 8601 — "2026-08-12" when only a date is given, "2026-08-12T06:00" when a time is given too. A time with no stated zone is UTC.
 - A laycan or date window gives the start: use the first day of the window. Its last day is a cancelling date, not a completion time — never return it as the end. Return an end only when the email actually says when the operation finishes.
+- CHS and MS naming varies a lot by client — read for meaning, not just the literal words "CHS"/"MS":
+  - MS (Manoeuvring Ship) is the vessel that comes alongside / manoeuvres. Clients often call this the "mother ship" or "mother vessel".
+  - CHS (Constant Heading Ship) is the vessel that holds course while the other comes alongside. Clients often call this the "child ship", "daughter ship", or "sister ship".
+  - These labels are inconsistent across clients — if the email's own wording contradicts the usual pattern above, or uses some other term, follow what the email actually says about which vessel is holding course versus manoeuvring/coming alongside, not the label alone. If it is genuinely unclear which vessel is which, return null for both rather than guessing.
+- description: this is the one field that is a summary rather than a lookup. List, in short plain-text lines, any other operational detail the email states that has no field of its own above — vessel flag, cargo grade, a vessel's cargo capacity, ETA, requested support (superintendent, fenders, hoses, craft), permits/approvals mentioned, or anything else concrete. Only include what the email actually says; do not restate values already captured in the other fields (vessel names, cargo type, quantity, dates, client, agent, location, vessel type). Null if there is nothing left over to note.
 
 A blank field an operator fills in is far better than a wrong one that gets saved.`;
 
@@ -40,7 +49,7 @@ function nullableEnum(values, description) {
 
 /**
  * Build the tool schema from the live dropdown options so the model cannot invent a value.
- * @param {{typeOfOperation: string[], locations: string[], cargoTypes: string[]}} options
+ * @param {{typeOfOperation: string[], locations: string[], cargoTypes: string[], vesselTypes: string[]}} options
  */
 export function buildExtractionTool(options) {
   return {
@@ -63,14 +72,26 @@ export function buildExtractionTool(options) {
           options.cargoTypes,
           "The cargo grade, if the email names one. Must match an allowed cargo type exactly."
         ),
-        chs: nullableString("Name of the CHS / mother vessel, if stated."),
-        ms: nullableString("Name of the MS / daughter vessel, if stated."),
+        chs: nullableString(
+          "Name of the CHS (Constant Heading Ship) vessel, if stated — often called the child/daughter/sister ship."
+        ),
+        ms: nullableString(
+          "Name of the MS (Manoeuvring Ship) vessel, if stated — often called the mother ship."
+        ),
         operationType: nullableEnum(
           options.operationTypes,
           "Whether the transfer is underway or at anchor, if the email says."
         ),
         loaCHS: nullableString("Length overall of the CHS vessel in metres, digits only."),
         loaMS: nullableString("Length overall of the MS vessel in metres, digits only."),
+        vesselTypeCHS: nullableEnum(
+          options.vesselTypes,
+          "Vessel class/type of the CHS vessel (e.g. VLCC, Aframax), if the email states one. Must match an allowed vessel type exactly — pick the closest class named, e.g. \"Aframax Tanker\" is \"Aframax\"."
+        ),
+        vesselTypeMS: nullableEnum(
+          options.vesselTypes,
+          "Vessel class/type of the MS vessel (e.g. VLCC, Aframax), if the email states one. Must match an allowed vessel type exactly — pick the closest class named, e.g. \"Aframax Tanker\" is \"Aframax\"."
+        ),
         client: nullableString(
           "Client or charterer the operation is for, if named. Organisation name only, verbatim."
         ),
@@ -84,6 +105,9 @@ export function buildExtractionTool(options) {
         operationEndTime: nullableString(
           "When the transfer is expected to finish, ISO 8601. Null if the email does not say."
         ),
+        description: nullableString(
+          "Other operational details the email states with no field of their own above — vessel flag, cargo grade, a vessel's capacity, requested support, permits mentioned, etc. Short plain-text lines. Do not repeat values already captured elsewhere."
+        ),
       },
       required: [
         "typeOfOperation",
@@ -94,11 +118,14 @@ export function buildExtractionTool(options) {
         "operationType",
         "loaCHS",
         "loaMS",
+        "vesselTypeCHS",
+        "vesselTypeMS",
         "client",
         "agent",
         "quantity",
         "operationStartTime",
         "operationEndTime",
+        "description",
       ],
     },
   };
@@ -113,15 +140,22 @@ const FIELD_KEYS = [
   "ms",
   "loaCHS",
   "loaMS",
+  "vesselTypeCHS",
+  "vesselTypeMS",
   "client",
   "agent",
   "quantity",
   "operationStartTime",
   "operationEndTime",
+  "description",
 ];
 
 /** Free-text fields, kept verbatim rather than checked against an option list. */
 const FREE_TEXT_KEYS = { chs: 200, ms: 200, client: 120, agent: 120 };
+
+/** Max length for the free-text `description` catch-all (handled separately — its
+ *  line breaks are kept, unlike the single-line fields above). */
+const DESCRIPTION_MAX_LENGTH = 2000;
 
 /** Fields that must be a plain number, stored as a digit string. */
 const NUMERIC_KEYS = ["loaCHS", "loaMS", "quantity"];
@@ -304,11 +338,19 @@ export function sanitizeExtractedFields(raw, options) {
   out.location = pickFrom(raw.location, options.locations);
   out.typeOfCargo = pickFrom(raw.typeOfCargo, options.cargoTypes);
   out.operationType = pickFrom(raw.operationType, options.operationTypes || []);
+  out.vesselTypeCHS = pickFrom(raw.vesselTypeCHS, options.vesselTypes || []);
+  out.vesselTypeMS = pickFrom(raw.vesselTypeMS, options.vesselTypes || []);
 
   for (const [key, maxLength] of Object.entries(FREE_TEXT_KEYS)) {
     const value = typeof raw[key] === "string" ? raw[key].trim().replace(/\s+/g, " ") : "";
     out[key] = value ? value.slice(0, maxLength) : null;
   }
+
+  /* Unlike the single-line fields above, description keeps its line breaks —
+     collapsing them would turn a readable multi-line summary into one long run-on line. */
+  const descriptionValue =
+    typeof raw.description === "string" ? raw.description.trim().replace(/[ \t]+/g, " ") : "";
+  out.description = descriptionValue ? descriptionValue.slice(0, DESCRIPTION_MAX_LENGTH) : null;
 
   for (const key of NUMERIC_KEYS) {
     const value = typeof raw[key] === "string" ? raw[key].trim().replace(/[,\s]/g, "") : "";
@@ -358,12 +400,50 @@ export async function extractFieldsFromEmail({ subject, bodyText, options }) {
   return block ? block.input : emptyFields();
 }
 
+/**
+ * Ask OpenAI to read the email, constrained to the supplied option lists — same schema,
+ * same system prompt, and the same "null over a guess" contract as the Claude path above.
+ * Returns the raw structured output; the caller must still run `sanitizeExtractedFields`.
+ */
+export async function extractFieldsFromEmailOpenAI({ subject, bodyText, options }) {
+  const text = `${subject ? `Subject: ${subject}\n\n` : ""}${bodyText || ""}`.trim();
+  if (!text) return emptyFields();
+
+  const client = new OpenAI();
+  const schema = buildExtractionTool(options).input_schema;
+
+  const response = await client.chat.completions.create({
+    model: OPENAI_EXTRACTION_MODEL,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: text },
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: { name: TOOL_NAME, strict: true, schema },
+    },
+  });
+
+  const raw = response.choices?.[0]?.message?.content;
+  if (!raw) return emptyFields();
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return emptyFields();
+  }
+}
+
 /* =====================
    DETERMINISTIC EXTRACTION (no API key required)
 ====================== */
 
 export function hasAnthropicKey() {
   return Boolean(process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.trim());
+}
+
+export function hasOpenAIKey() {
+  return Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim());
 }
 
 /** Lowercase with punctuation flattened, so option names match regardless of formatting. */
@@ -442,8 +522,13 @@ function matchLabelledValue(text, labels, clean) {
   return null;
 }
 
-const CHS_LABEL = /\b(?:chs|mother|discharging)\b\s*(?:vessel|ship)?\s*[:\-–—=]/i;
-const MS_LABEL = /\b(?:ms|daughter|receiving)\b\s*(?:vessel|ship)?\s*[:\-–—=]/i;
+/* CHS (Constant Heading Ship) is commonly called the child/daughter/sister ship;
+   MS (Manoeuvring Ship) is commonly called the mother ship. Backwards from what these
+   used to say — corrected per the actual convention this app's clients use.
+   Matches either a labelled value on the line ("Mother Vessel: MT X") or the label alone
+   as its own heading line ("Mother Vessel", with details following on later lines). */
+const CHS_LABEL = /\b(?:chs|child|daughter|sister|discharging)\b\s*(?:vessel|ship|name)?\s*(?:[:\-–—=]|$)/i;
+const MS_LABEL = /\b(?:ms|mother|receiving)\b\s*(?:vessel|ship|name)?\s*(?:[:\-–—=]|$)/i;
 const LOA_LINE = /\bloa\b[^:\-–—=\n]*[:\-–—=]\s*([\d.,\s]+)/i;
 
 /**
@@ -455,7 +540,8 @@ export function matchVesselLoa(text) {
   const result = { loaCHS: null, loaMS: null };
   let current = null;
 
-  for (const line of String(text || "").split(/\r?\n/)) {
+  for (const rawLine of String(text || "").split(/\r?\n/)) {
+    const line = rawLine.trim();
     if (CHS_LABEL.test(line)) current = "loaCHS";
     else if (MS_LABEL.test(line)) current = "loaMS";
 
@@ -464,6 +550,33 @@ export function matchVesselLoa(text) {
 
     const digits = match[1].replace(/[,\s]/g, "");
     if (/^\d+(\.\d+)?$/.test(digits)) result[current] = digits;
+  }
+
+  return result;
+}
+
+const VESSEL_TYPE_LINE = /\b(?:vessel\s*type|type\s*of\s*vessel)\b[^:\-–—=\n]*[:\-–—=]\s*(.+)$/i;
+
+/**
+ * Same attribution as `matchVesselLoa`: a "Vessel Type: VLCC" line belongs to whichever
+ * vessel was named most recently. Matched only against the real vessel-type options, so
+ * an unrecognised class (or one the model already declined) is left null, not guessed.
+ */
+export function matchVesselType(text, vesselTypeOptions) {
+  const result = { vesselTypeCHS: null, vesselTypeMS: null };
+  if (!vesselTypeOptions?.length) return result;
+  let current = null;
+
+  for (const rawLine of String(text || "").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (CHS_LABEL.test(line)) current = "vesselTypeCHS";
+    else if (MS_LABEL.test(line)) current = "vesselTypeMS";
+
+    const match = line.match(VESSEL_TYPE_LINE);
+    if (!match || !current || result[current]) continue;
+
+    const value = matchOption(match[1], vesselTypeOptions);
+    if (value) result[current] = value;
   }
 
   return result;
@@ -493,8 +606,8 @@ export function extractFieldsDeterministically({ subject, bodyText, options }) {
   fields.typeOfOperation = matchOption(text, options.typeOfOperation);
   fields.location = matchOption(text, options.locations);
   fields.typeOfCargo = matchOption(text, options.cargoTypes);
-  fields.chs = matchLabelledValue(text, ["chs", "mother", "discharging"], cleanVesselName);
-  fields.ms = matchLabelledValue(text, ["ms", "daughter", "receiving"], cleanVesselName);
+  fields.chs = matchLabelledValue(text, ["chs", "child", "daughter", "sister", "discharging"], cleanVesselName);
+  fields.ms = matchLabelledValue(text, ["ms", "mother", "receiving"], cleanVesselName);
   fields.client = matchLabelledValue(text, ["client", "charterer"], cleanOrganisationName);
   fields.agent = matchLabelledValue(text, ["agent", "agency"], cleanOrganisationName);
   fields.operationType = matchOption(text, options.operationTypes || []);
@@ -503,6 +616,10 @@ export function extractFieldsDeterministically({ subject, bodyText, options }) {
   const { loaCHS, loaMS } = matchVesselLoa(text);
   fields.loaCHS = loaCHS;
   fields.loaMS = loaMS;
+
+  const { vesselTypeCHS, vesselTypeMS } = matchVesselType(text, options.vesselTypes || []);
+  fields.vesselTypeCHS = vesselTypeCHS;
+  fields.vesselTypeMS = vesselTypeMS;
 
   /* An explicit start beats a laycan window: the window says when the operation
      may begin, an explicit line says when it does. */
@@ -514,20 +631,26 @@ export function extractFieldsDeterministically({ subject, bodyText, options }) {
 }
 
 /**
- * Extract operation fields, using Claude when a key is configured and falling back to
- * deterministic matching when it is not — or when the model call fails.
+ * Extract operation fields with a model when a key is configured, falling back to
+ * deterministic matching when neither key is set — or when the model call fails.
+ * Prefers OpenAI (the key actually provisioned for this) over Claude when both are set.
  *
- * @returns {Promise<{fields: object, method: "model"|"deterministic"|"deterministic-fallback"}>}
+ * @returns {Promise<{fields: object, method: "model"|"model-openai"|"deterministic"|"deterministic-fallback"}>}
  */
 export async function extractFields({ subject, bodyText, options }) {
   const deterministic = extractFieldsDeterministically({ subject, bodyText, options });
 
-  if (!hasAnthropicKey()) {
+  const useOpenAI = hasOpenAIKey();
+  const useClaude = !useOpenAI && hasAnthropicKey();
+
+  if (!useOpenAI && !useClaude) {
     return { fields: deterministic, method: "deterministic" };
   }
 
   try {
-    const raw = await extractFieldsFromEmail({ subject, bodyText, options });
+    const raw = useOpenAI
+      ? await extractFieldsFromEmailOpenAI({ subject, bodyText, options })
+      : await extractFieldsFromEmail({ subject, bodyText, options });
     const modelFields = sanitizeExtractedFields(raw, options);
 
     // Deterministic matches are exact hits on real option values, so they are safe
@@ -537,10 +660,10 @@ export async function extractFields({ subject, bodyText, options }) {
       if (!merged[key] && deterministic[key]) merged[key] = deterministic[key];
     }
 
-    return { fields: merged, method: "model" };
+    return { fields: merged, method: useOpenAI ? "model-openai" : "model" };
   } catch (error) {
     console.error(
-      "Claude extraction unavailable, falling back to deterministic matching:",
+      `${useOpenAI ? "OpenAI" : "Claude"} extraction unavailable, falling back to deterministic matching:`,
       error?.message || error
     );
     return { fields: deterministic, method: "deterministic-fallback" };
@@ -570,11 +693,12 @@ const VESSEL_DOC_PATTERNS = [
 
 /**
  * Keyword fallback when the filename carries no vessel name.
- * CHS is the mother ship and MS the daughter ship, per the form's own labels.
+ * CHS (Constant Heading Ship) is commonly called the child/daughter/sister ship;
+ * MS (Manoeuvring Ship) is commonly called the mother ship.
  */
 const VESSEL_KEYWORDS = {
-  chs: [/\bchs\b/, /\bmother\b/, /\bdischarging\b/],
-  ms: [/\bms\b/, /\bdaughter\b/, /\breceiving\b/],
+  chs: [/\bchs\b/, /\bchild\b/, /\bdaughter\b/, /\bsister\b/, /\bdischarging\b/],
+  ms: [/\bms\b/, /\bmother\b/, /\breceiving\b/],
 };
 
 /** Lowercase, separators collapsed to spaces so `\b` boundaries behave. */

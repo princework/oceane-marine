@@ -513,7 +513,7 @@ export default function BeforeRunInMooringChecklist() {
         signatureBlock: { 
           signature: extractBase64(formData.signature.signature || '') 
         },
-        status: 'DRAFT',
+        status: 'SUBMITTED',
       };
 
       const form = new FormData();
