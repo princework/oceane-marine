@@ -14,6 +14,11 @@ const ALL_SIDEBAR_TABS = [
     label: "Forms and checklist",
     submodules: [
       {
+        key: "transfer-location-quest",
+        label: "Transfer Location Questionnaire",
+        href: "/operations/sts-operations/new/form-checklist/transfer-location-quest/list",
+      },
+      {
         key: "sts-checklist",
         label: "STS Checklist",
         href: "/operations/sts-operations/new/form-checklist/sts-checklist",
@@ -28,11 +33,6 @@ const ALL_SIDEBAR_TABS = [
       //   label: "Quotation",
       //   href: "/operations/sts-operations/new/form-checklist/quotations/sts-form",
       // },
-      {
-        key: "transfer-location-quest",
-        label: "Transfer Location Questionnaire",
-        href: "/operations/sts-operations/new/form-checklist/transfer-location-quest/list",
-      },
       // {
       //   key: "inspection-checklist",
       //   label: "Inspection Checklist",

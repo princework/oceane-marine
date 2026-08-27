@@ -49,7 +49,7 @@ export const STS_CHECKLIST_FORMS = [
     formNo: "NEAR-MISS",
     title: "Near Miss Report",
     apiPath: null,
-    directUrl: "https://qhse-forms.vercel.app/forms/near-miss",
+    directUrl: "https://oceane-marine-fgbs.vercel.app/forms/near-miss",
   },
 ];
 

@@ -506,10 +506,13 @@ function cleanOrganisationName(raw) {
 /**
  * Pull a value from an explicitly labelled line, e.g. "CHS: MT STELLA" or "Client: Shell".
  * Labelled lines only — an unlabelled name in prose is too ambiguous to attribute.
+ *
+ * \**\s* after the separator absorbs a bold-markdown close ("*Client:* Shell") that
+ * Gmail's plain-text body carries over from a rich-text compose — see LOA_LINE below.
  */
 function matchLabelledValue(text, labels, clean) {
   const pattern = new RegExp(
-    `\\b(?:${labels.join("|")})\\b\\s*(?:vessel|ship|name)?\\s*[:\\-–—=]\\s*(.+)$`,
+    `\\b(?:${labels.join("|")})\\b\\s*(?:vessel|ship|name)?\\s*[:\\-–—=]\\s*\\**\\s*(.+)$`,
     "i"
   );
 
@@ -529,7 +532,10 @@ function matchLabelledValue(text, labels, clean) {
    as its own heading line ("Mother Vessel", with details following on later lines). */
 const CHS_LABEL = /\b(?:chs|child|daughter|sister|discharging)\b\s*(?:vessel|ship|name)?\s*(?:[:\-–—=]|$)/i;
 const MS_LABEL = /\b(?:ms|mother|receiving)\b\s*(?:vessel|ship|name)?\s*(?:[:\-–—=]|$)/i;
-const LOA_LINE = /\bloa\b[^:\-–—=\n]*[:\-–—=]\s*([\d.,\s]+)/i;
+/* Gmail renders a composed *bold* label as plain-text asterisks that survive into the
+   body — "*LOA (CHS):* 274.00 m" — so a closing "*" can sit between the separator and
+   the number. \**\s* skips it the same way \s* already skips plain whitespace. */
+const LOA_LINE = /\bloa\b[^:\-–—=\n]*[:\-–—=]\s*\**\s*([\d.,\s]+)/i;
 
 /**
  * LOA lines carry no vessel of their own — "LOA: 20000" belongs to whichever vessel was
