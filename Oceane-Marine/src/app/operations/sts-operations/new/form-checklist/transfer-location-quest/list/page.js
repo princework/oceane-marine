@@ -12,7 +12,7 @@ import {
   isFormsSubmoduleSidebarActive,
 } from "@/app/operations/sts-operations/new/sidebarTabs";
 import { QhseListPageContainer } from "@/app/qhse/components/QhseListPageContainer";
-import { ActionViewIconLink } from "@/app/components/RecordActionIcons";
+import { ActionViewIconLink, ActionDeleteIcon } from "@/app/components/RecordActionIcons";
 
 function formatDateTime(value) {
   if (!value) return "—";
@@ -51,7 +51,7 @@ export default function TransferLocationQuestListPage() {
   /* Approve/reject and the "Send to Client" action are QHSE-compliance permissions —
      the underlying API routes still enforce them via assertQhsePermission, so the UI
      gate has to match, regardless of which sidebar the page is opened from. */
-  const { canCreate } = useQhseRole();
+  const { canCreate, canDelete } = useQhseRole();
   const sidebarTabs = getSidebarTabs(isOpsAdmin);
   const [activeTab] = useState("forms");
   const [expandedModules, setExpandedModules] = useState(new Set(["forms"]));
@@ -68,6 +68,7 @@ export default function TransferLocationQuestListPage() {
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
 
   const loadDraftOperations = useCallback(async () => {
     setLoadingDraftOps(true);
@@ -135,6 +136,28 @@ export default function TransferLocationQuestListPage() {
       setSendError(err.message || "Failed to send email");
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleDelete = async (form) => {
+    if (!canDelete) return;
+    if (!confirm("Are you sure you want to delete this submission? This cannot be undone.")) return;
+    setDeletingId(form._id);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/qhse/form-checklist/transfer-location-quest/submissions/${form._id}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to delete submission");
+      }
+      setSubmissions((prev) => prev.filter((s) => s._id !== form._id));
+    } catch (err) {
+      setError(err.message || "Failed to delete submission");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -431,9 +454,18 @@ export default function TransferLocationQuestListPage() {
                         <td className="py-3 pr-4 text-slate-300">{formatDateTime(form.createdAt)}</td>
                         <td className="py-3 pr-4">{getStatusBadge(form.status)}</td>
                         <td className="py-3 pr-4 text-right">
-                          <ActionViewIconLink
-                            href={`/operations/sts-operations/new/form-checklist/transfer-location-quest/${form._id}`}
-                          />
+                          <div className="flex items-center justify-end gap-2">
+                            <ActionViewIconLink
+                              href={`/operations/sts-operations/new/form-checklist/transfer-location-quest/${form._id}`}
+                            />
+                            {canDelete && (
+                              <ActionDeleteIcon
+                                onClick={() => handleDelete(form)}
+                                disabled={deletingId === form._id}
+                                loading={deletingId === form._id}
+                              />
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}

@@ -206,6 +206,26 @@ test("each LOA is attributed to the vessel named above it", () => {
   assert.equal(fields.operationType, "At Anchor");
 });
 
+test("a bold-markdown label from Gmail's plain-text body doesn't swallow the value", () => {
+  const fields = extractFieldsDeterministically({
+    subject: "",
+    bodyText: [
+      "*CHS Name:* MV Ocean Star",
+      "*LOA (CHS):* 274.00 m",
+      "*MS Name:* MT Sea Falcon",
+      "*LOA (MS):* 228.50 m",
+      "*Client:* Oceanic Energy Trading Ltd",
+    ].join("\n"),
+    options: OPTIONS,
+  });
+
+  assert.equal(fields.chs, "Ocean Star");
+  assert.equal(fields.loaCHS, "274.00");
+  assert.equal(fields.ms, "Sea Falcon");
+  assert.equal(fields.loaMS, "228.50");
+  assert.equal(fields.client, "Oceanic Energy Trading Ltd");
+});
+
 test("LOA is attributed to vessels labelled 'CHS Name:' / 'MS Name:'", () => {
   const fields = extractFieldsDeterministically({
     subject: "",
