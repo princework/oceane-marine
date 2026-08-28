@@ -1,8 +1,34 @@
 const ALL_SIDEBAR_TABS = [
   {
     key: "documentation",
-    label: "STS Operations",
+    label: "Inquiry",
     href: "/operations/sts-operations/new",
+  },
+  {
+    key: "operation",
+    label: "Operation",
+    submodules: [
+      {
+        key: "lined-up",
+        label: "Lined Up",
+        href: "/operations/sts-operations/new/operation/lined-up",
+      },
+      {
+        key: "in-progress",
+        label: "In Progress",
+        href: "/operations/sts-operations/new/operation/in-progress",
+      },
+      {
+        key: "completed",
+        label: "Completed",
+        href: "/operations/sts-operations/new/operation/completed",
+      },
+      {
+        key: "cancelled",
+        label: "Cancelled",
+        href: "/operations/sts-operations/new/operation/cancelled",
+      },
+    ],
   },
   {
     key: "compatibility",

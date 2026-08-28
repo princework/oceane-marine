@@ -1043,18 +1043,21 @@ export default function WeatherMonitoring() {
               </div>
             </div>
 
-            {/* 16-day outlook — click a day to preview it for a future operation */}
+            {/* 14-day outlook — click a day to preview it for a future operation */}
             <div>
               <div className="flex items-center justify-between mb-2 px-0.5">
                 <p className="text-[10px] sm:text-xs font-semibold text-slate-300 uppercase tracking-wide">
-                  16-Day Outlook
+                  14-Day Outlook
                 </p>
                 <p className="text-[10px] text-slate-500 hidden sm:block">
                   Tap a day to plan around it
                 </p>
               </div>
-              <div className="flex gap-2 sm:gap-2.5 overflow-x-auto pb-1 -mx-1 px-1 [scrollbar-width:thin]">
-                {weather.daily.time.map((date, idx) => {
+              <div
+                className="grid gap-2 sm:gap-2.5"
+                style={{ gridTemplateColumns: "repeat(auto-fill, minmax(4.5rem, 1fr))" }}
+              >
+                {weather.daily.time.slice(0, 14).map((date, idx) => {
                   const dayInfo = describeWeatherCode(weather.daily.weather_code[idx]);
                   const dayTheme = CATEGORY_THEME[dayInfo.category];
                   const max = weather.daily.temperature_2m_max[idx];
@@ -1071,7 +1074,7 @@ export default function WeatherMonitoring() {
                       type="button"
                       key={date}
                       onClick={() => setSelectedDate(date)}
-                      className={`w-[4.5rem] sm:w-[5.5rem] shrink-0 rounded-xl border p-2.5 sm:p-3 text-center transition-all hover:-translate-y-0.5 ${
+                      className={`w-full rounded-xl border p-2.5 sm:p-3 text-center transition-all hover:-translate-y-0.5 ${
                         isActive
                           ? "border-orange-400/60 bg-orange-500/10 shadow-lg shadow-orange-500/10"
                           : "border-white/10 bg-white/[0.03] hover:border-white/25 hover:bg-white/[0.06]"

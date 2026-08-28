@@ -1077,7 +1077,7 @@ export default function NewOperationPage() {
               <p className="text-xs sm:text-sm uppercase tracking-[0.15em] sm:tracking-[0.25em] text-slate-200 font-semibold">
                 STS Management System
               </p>
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold">STS Operation Documentation</h1>
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold">Inquiry</h1>
             </div>
             
             {/* Right: Action Buttons */}
@@ -1797,15 +1797,6 @@ const STS_LIST_QUARTER_OPTIONS = [
   { value: "4", label: "Q4 (Oct–Dec)" },
 ];
 
-const STS_LIST_STATUS_OPTIONS = [
-  { value: "", label: "All" },
-  { value: "DRAFT", label: "Draft" },
-  { value: "INPROGRESS", label: "In Progress" },
-  { value: "COMPLETED", label: "Completed" },
-  { value: "Lined Up", label: "Lined Up" },
-  { value: "CANCELED", label: "Canceled" },
-];
-
 /** Custom dropdown so the menu matches trigger width (native select popups ignore width on mobile). */
 function StsListFilterSelect({
   filterKey,
@@ -1901,7 +1892,6 @@ function OperationsListComponent() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredOperations, setFilteredOperations] = useState([]);
-  const [statusFilter, setStatusFilter] = useState("");
   const [yearFilter, setYearFilter] = useState("");
   const [monthFilter, setMonthFilter] = useState("");
   const [quarterFilter, setQuarterFilter] = useState("");
@@ -1910,16 +1900,17 @@ function OperationsListComponent() {
   const router = useRouter();
   const { canCreateForm, canEditForm, canDeleteForm } = useOperationsRole();
   const yearFieldId = useId();
-  const statusFieldId = useId();
   const monthFieldId = useId();
   const quarterFieldId = useId();
   const [openFilterKey, setOpenFilterKey] = useState(null);
 
-  // Fetch all operations once on mount to calculate available years
+  /* Inquiry is the Draft-only inbox — once an operation is approved it moves to
+     "Lined Up" and only shows up under the Operation module, so this view (and
+     the year filter it computes options from) is scoped to DRAFT only. */
   useEffect(() => {
     const fetchAllOperations = async () => {
       try {
-        const response = await fetch(`/api/operations/sts/list`);
+        const response = await fetch(`/api/operations/sts/list?status=DRAFT`);
         const data = await response.json();
         if (data.success) {
           setAllOperations(data.data || []);
@@ -1933,7 +1924,7 @@ function OperationsListComponent() {
 
   useEffect(() => {
     fetchOperations();
-  }, [statusFilter, yearFilter, monthFilter, quarterFilter]);
+  }, [yearFilter, monthFilter, quarterFilter]);
 
   useEffect(() => {
     let filtered = operations;
@@ -1966,11 +1957,11 @@ function OperationsListComponent() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, statusFilter, yearFilter, monthFilter, quarterFilter]);
+  }, [searchQuery, yearFilter, monthFilter, quarterFilter]);
 
   useEffect(() => {
     setOpenFilterKey(null);
-  }, [statusFilter, yearFilter, monthFilter, quarterFilter]);
+  }, [yearFilter, monthFilter, quarterFilter]);
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(filteredOperations.length / pageSize));
@@ -1991,7 +1982,7 @@ function OperationsListComponent() {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (statusFilter) params.append("status", statusFilter);
+      params.append("status", "DRAFT");
       if (yearFilter) params.append("year", yearFilter);
       if (monthFilter) params.append("month", monthFilter);
       if (quarterFilter) params.append("quarter", quarterFilter);
@@ -2108,7 +2099,6 @@ function OperationsListComponent() {
 
   const hasActiveListFilters =
     Boolean(searchQuery.trim()) ||
-    Boolean(statusFilter) ||
     Boolean(yearFilter) ||
     Boolean(monthFilter) ||
     Boolean(quarterFilter);
@@ -2150,7 +2140,7 @@ function OperationsListComponent() {
       </div>
 
       <div className="rounded-2xl border border-white/10 bg-white/5">
-        <div className="grid grid-cols-1 gap-3 border-b border-white/10 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 border-b border-white/10 p-4 sm:grid-cols-2 lg:grid-cols-3">
           <StsListFilterSelect
             filterKey="year"
             openFilterKey={openFilterKey}
@@ -2160,16 +2150,6 @@ function OperationsListComponent() {
             value={yearFilter}
             onChange={setYearFilter}
             options={yearFilterOptions}
-          />
-          <StsListFilterSelect
-            filterKey="status"
-            openFilterKey={openFilterKey}
-            setOpenFilterKey={setOpenFilterKey}
-            label="Status"
-            fieldId={statusFieldId}
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={STS_LIST_STATUS_OPTIONS}
           />
           <StsListFilterSelect
             filterKey="month"

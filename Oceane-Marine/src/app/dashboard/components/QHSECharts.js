@@ -40,7 +40,7 @@ const MONTHS = [
   "Dec",
 ];
 
-export default function QHSECharts() {
+export default function QHSECharts({ refreshKey }) {
   const router = useRouter();
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
@@ -136,7 +136,7 @@ export default function QHSECharts() {
   useEffect(() => {
     fetchStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedYear, selectedMonth]);
+  }, [selectedYear, selectedMonth, refreshKey]);
 
   // Refetch when user returns to this tab/window so new data is reflected
   useEffect(() => {

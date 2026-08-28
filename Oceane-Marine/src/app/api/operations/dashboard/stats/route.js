@@ -49,6 +49,8 @@ export async function GET(req) {
     const totalOperations = operations.length;
 
     // 2. Status count
+    // "Lined Up" means approved but not yet started — the dashboard's "Pending" card
+    // reflects that, alongside operations with no status recorded at all.
     const statusCount = {
       DRAFT: 0,
       COMPLETED: 0,
@@ -57,7 +59,9 @@ export async function GET(req) {
       PENDING: 0,
     };
     operations.forEach((op) => {
-      const status = op.operationStatus || "PENDING";
+      const status = op.operationStatus === "Lined Up" || !op.operationStatus
+        ? "PENDING"
+        : op.operationStatus;
       if (statusCount.hasOwnProperty(status)) {
         statusCount[status]++;
       }
@@ -97,8 +101,8 @@ export async function GET(req) {
       }
     });
 
-    // 7. LOA range - Note: LOA data not available in current schema
-    // Will return empty object if not available
+    // 7. LOA range — loaCHS/loaMS are free-text digit strings filled in at
+    // creation/import (see email-extract.js), one per vessel per operation.
     const loaRanges = {
       "50-100": 0,
       "100-150": 0,
@@ -108,7 +112,21 @@ export async function GET(req) {
       "300-330": 0,
       "330+": 0,
     };
-    // TODO: Add LOA field to StsOperation schema if needed
+    const bucketLoa = (value) => {
+      const num = Number.parseFloat(value);
+      if (!Number.isFinite(num) || num <= 0) return;
+      if (num < 100) loaRanges["50-100"]++;
+      else if (num < 150) loaRanges["100-150"]++;
+      else if (num < 200) loaRanges["150-200"]++;
+      else if (num < 250) loaRanges["200-250"]++;
+      else if (num < 300) loaRanges["250-300"]++;
+      else if (num < 330) loaRanges["300-330"]++;
+      else loaRanges["330+"]++;
+    };
+    operations.forEach((op) => {
+      bucketLoa(op.loaCHS);
+      bucketLoa(op.loaMS);
+    });
 
     // 8. Clients-wise operations
     const clientsCount = {};

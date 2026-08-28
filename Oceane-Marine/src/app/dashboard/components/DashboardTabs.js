@@ -5,7 +5,7 @@ import OperationsCharts from "./OperationsCharts";
 import PMSCharts from "./PMSCharts";
 import QHSECharts from "./QHSECharts";
 import HrCharts from "./HrCharts";
-const DashboardTabs = ({ activeTab, onTabChange }) => {
+const DashboardTabs = ({ activeTab, onTabChange, refreshKey }) => {
   const tabs = [
     { key: "operations", label: "Operations" },
     { key: "pms", label: "PMS" },
@@ -35,10 +35,10 @@ const DashboardTabs = ({ activeTab, onTabChange }) => {
       </div>
 
       <div className="rounded-2xl sm:rounded-3xl border border-white/10 bg-slate-900/40 p-3 sm:p-4 md:p-6 shadow-xl backdrop-blur-md overflow-hidden">
-        {activeTab === "operations" && <OperationsCharts />}
-        {activeTab === "pms" && <PMSCharts />}
-        {activeTab === "qhse" && <QHSECharts />}
-        {activeTab === "hr" && <HrCharts />}
+        {activeTab === "operations" && <OperationsCharts refreshKey={refreshKey} />}
+        {activeTab === "pms" && <PMSCharts refreshKey={refreshKey} />}
+        {activeTab === "qhse" && <QHSECharts refreshKey={refreshKey} />}
+        {activeTab === "hr" && <HrCharts refreshKey={refreshKey} />}
       </div>
     </div>
   );
@@ -47,6 +47,7 @@ const DashboardTabs = ({ activeTab, onTabChange }) => {
 DashboardTabs.propTypes = {
   activeTab: PropTypes.string.isRequired,
   onTabChange: PropTypes.func.isRequired,
+  refreshKey: PropTypes.number,
 };
 
 export default DashboardTabs;

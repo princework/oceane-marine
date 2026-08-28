@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef, forwardRef, useMemo } from "react";
-import { usePathname, useParams, useRouter } from "next/navigation";
+import { usePathname, useParams, useRouter, useSearchParams } from "next/navigation";
 import { useOperationsSidebar } from "@/app/operations/OperationsSidebarContext";
 import { useOperationsRole } from "@/hooks/useOperationsRole";
 import {
@@ -54,7 +54,13 @@ const statusTone = {
 export default function EditOperationPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const { id } = params;
+  /* Where "Cancel" / "Back to List" / post-save should return to. Set by whichever
+     list the user opened this record from (Inquiry, or one of the Operation
+     submodules) — falls back to Inquiry's list for links that predate this param. */
+  const returnTo = searchParams.get("returnTo");
+  const backHref = returnTo || "/operations/sts-operations/new?tab=list";
   const [status, setStatus] = useState("INPROGRESS");
   const [showStatusList, setShowStatusList] = useState(false);
   const { isSidebarOpen, setIsSidebarOpen } = useOperationsSidebar();
@@ -179,27 +185,31 @@ export default function EditOperationPage() {
 
   // Removed click-outside-to-close behavior - sidebar only closes on "x" button click (like QHSE module)
 
-  // Set active tab based on pathname
+  // Set active tab based on where the user is returning to, falling back to pathname
   useEffect(() => {
-    if (pathname === "/operations/sts-operations/new") {
+    const effectivePath = returnTo || pathname;
+    if (effectivePath.startsWith("/operations/sts-operations/new/operation/")) {
+      setActiveTab("operation");
+      setExpandedModules((prev) => new Set([...prev, "operation"]));
+    } else if (effectivePath === "/operations/sts-operations/new") {
       setActiveTab("documentation");
-    } else if (pathname.startsWith("/operations/sts-operations/new/compatibility")) {
+    } else if (effectivePath.startsWith("/operations/sts-operations/new/compatibility")) {
       setActiveTab("compatibility");
       // Don't auto-expand forms when on compatibility page
-    } else if (pathname.startsWith("/operations/sts-operations/new/form-checklist")) {
+    } else if (effectivePath.startsWith("/operations/sts-operations/new/form-checklist")) {
       setActiveTab("forms");
       // Auto-expand forms module only when on form-checklist pages
       setExpandedModules((prev) => new Set([...prev, "forms"]));
-    } else if (pathname.startsWith("/operations/sts-operations/new/locations")) {
+    } else if (effectivePath.startsWith("/operations/sts-operations/new/locations")) {
       setActiveTab("locations");
-    } else if (pathname.startsWith("/operations/sts-operations/new/cargos")) {
+    } else if (effectivePath.startsWith("/operations/sts-operations/new/cargos")) {
       setActiveTab("cargos");
-    } else if (pathname.startsWith("/operations/sts-operations/new/clients-agents")) {
+    } else if (effectivePath.startsWith("/operations/sts-operations/new/clients-agents")) {
       setActiveTab("clientsAgents");
-    } else if (pathname.startsWith("/operations/sts-operations/new/mooringmaster")) {
+    } else if (effectivePath.startsWith("/operations/sts-operations/new/mooringmaster")) {
       setActiveTab("mooring");
     }
-  }, [pathname]);
+  }, [pathname, returnTo]);
 
   // Fetch operation data
   useEffect(() => {
@@ -220,12 +230,12 @@ export default function EditOperationPage() {
           // Allow editing even after submission
         } else {
           alert("Operation not found");
-          router.push("/operations/sts-operations/new?tab=list");
+          router.push(backHref);
         }
       } catch (error) {
         console.error("Error fetching operation:", error);
         alert("Failed to load operation");
-        router.push("/operations/sts-operations/new?tab=list");
+        router.push(backHref);
       } finally {
         setLoading(false);
       }
@@ -446,7 +456,7 @@ export default function EditOperationPage() {
 
       // Show success and redirect
       alert("STS Operation updated successfully!");
-      router.push("/operations/sts-operations/new?tab=list");
+      router.push(backHref);
     } catch (error) {
       console.error("Submission error:", error);
       alert(`Error: ${error.message}`);
@@ -537,7 +547,7 @@ export default function EditOperationPage() {
                         <div className="ml-4 space-y-1 mt-1.5 pl-4 border-l-2 border-orange-500/30">
                           {tab.submodules.map((submodule) => {
                             const isActiveSub = isFormsSubmoduleSidebarActive(
-                              pathname,
+                              returnTo || pathname,
                               submodule.href
                             );
                             return (
@@ -631,7 +641,7 @@ export default function EditOperationPage() {
             {/* Right: Action Buttons */}
             <div className="flex items-center gap-3 flex-shrink-0">
               <button
-                onClick={() => router.push("/operations/sts-operations/new?tab=list")}
+                onClick={() => router.push(backHref)}
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 border border-white/20 hover:bg-white/20 transition hover:scale-110"
                 aria-label="Close"
                 title="Close without saving"
@@ -1210,7 +1220,7 @@ export default function EditOperationPage() {
               <button
                 type="button"
                 onClick={() => {
-                  router.push("/operations/sts-operations/new?tab=list");
+                  router.push(backHref);
                 }}
                 className="px-6 py-3 rounded-xl border border-white/20 bg-white/5 text-white hover:bg-white/10 transition"
               >
