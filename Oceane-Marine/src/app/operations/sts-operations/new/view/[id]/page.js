@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useRouter, useParams, usePathname } from "next/navigation";
+import { useRouter, useParams, usePathname, useSearchParams } from "next/navigation";
 import { useOperationsSidebar } from "@/app/operations/OperationsSidebarContext";
 import { useOperationsRole } from "@/hooks/useOperationsRole";
 import {
@@ -123,7 +123,15 @@ function getLatestHardcopyDocForForm(documents, formCode) {
   )[0];
 }
 
-function LinkedFormStatusCard({ form: f, documents }) {
+function LinkedFormStatusCard({
+  form: f,
+  documents,
+  allowCorrection = false,
+  isCorrectionOpen = false,
+  correctionComment = "",
+  onToggleCorrection,
+  onCorrectionCommentChange,
+}) {
   const latest = f.docs?.[0];
   const hasDigitalRow = Boolean(f.filled && latest);
   const digitalPath = hasDigitalRow
@@ -149,11 +157,19 @@ function LinkedFormStatusCard({ form: f, documents }) {
       ? "bg-amber-500/20 text-amber-200"
       : "bg-slate-500/20 text-slate-400";
 
-  const borderClass = f.filled
-    ? "border-emerald-500/30 bg-emerald-900/10"
-    : manualOnly
-      ? "border-amber-500/35 bg-amber-900/10"
-      : "border-white/10 bg-white/5";
+  const hasQueuedCorrection = Boolean(correctionComment.trim());
+  /* Nothing to correct until the mooring master has actually submitted a file —
+     a still-Pending form has no document to flag as wrong. */
+  const hasAttachedFile = Boolean(digitalPath) || Boolean(manualOnly && primaryManualPath);
+  const canRequestCorrection = allowCorrection && hasAttachedFile;
+
+  const borderClass = hasQueuedCorrection
+    ? "border-orange-400/60 bg-orange-950/20"
+    : f.filled
+      ? "border-emerald-500/30 bg-emerald-900/10"
+      : manualOnly
+        ? "border-amber-500/35 bg-amber-900/10"
+        : "border-white/10 bg-white/5";
 
   const downloadIcon = (
     <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
@@ -177,10 +193,52 @@ function LinkedFormStatusCard({ form: f, documents }) {
           <p className="text-xs font-bold text-orange-300 truncate">{f.formCode}</p>
           <p className="text-sm font-semibold text-white truncate">{f.label}</p>
         </div>
-        <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${pillClass}`}>
-          {pillText}
-        </span>
+        <div className="flex flex-shrink-0 items-center gap-1.5">
+          {allowCorrection && (
+            <button
+              type="button"
+              onClick={() => canRequestCorrection && onToggleCorrection?.(f.formCode)}
+              disabled={!canRequestCorrection}
+              title={
+                canRequestCorrection
+                  ? "Request a correction for this form"
+                  : "No submitted file yet — nothing to correct"
+              }
+              aria-label="Request a correction for this form"
+              className={`flex h-5 w-5 items-center justify-center rounded-full border text-[13px] font-bold leading-none transition ${
+                !canRequestCorrection
+                  ? "cursor-not-allowed border-white/10 bg-white/5 text-white/30"
+                  : isCorrectionOpen || hasQueuedCorrection
+                    ? "border-orange-400 bg-orange-500/30 text-orange-200"
+                    : "border-white/20 bg-white/10 text-white/70 hover:bg-white/20"
+              }`}
+            >
+              +
+            </button>
+          )}
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${pillClass}`}>
+            {pillText}
+          </span>
+        </div>
       </div>
+
+      {hasQueuedCorrection && !isCorrectionOpen && (
+        <p className="mb-2 inline-flex items-center gap-1 rounded-full bg-orange-500/20 px-2 py-0.5 text-[10px] font-semibold text-orange-200">
+          Correction queued
+        </p>
+      )}
+
+      {canRequestCorrection && isCorrectionOpen && (
+        <div className="mb-3 space-y-1.5">
+          <textarea
+            value={correctionComment}
+            onChange={(e) => onCorrectionCommentChange?.(f.formCode, e.target.value)}
+            placeholder="What's wrong and what needs correcting?"
+            rows={3}
+            className="w-full rounded-lg border border-white/15 bg-slate-900/50 px-2.5 py-2 text-[11px] text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-orange-500/50"
+          />
+        </div>
+      )}
 
       {hasDigitalRow && (
         <div className="mt-2 space-y-0.5 text-[11px] text-white/60">
@@ -273,7 +331,17 @@ function ViewOperationPage() {
   const router = useRouter();
   const params = useParams();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { id } = params;
+
+  /* Where "Back to List" / "Close" / the Edit link should return to — set by
+     whichever list the user opened this record from (Inquiry, or one of the
+     Operation submodules). Falls back to Inquiry's list for older links. */
+  const returnTo = searchParams.get("returnTo");
+  const backHref = returnTo || "/operations/sts-operations/new?tab=list";
+  const editHref = `/operations/sts-operations/new/edit/${id}${
+    returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""
+  }`;
 
   const { canEditForm, isOpsAdmin } = useOperationsRole();
   const { isSidebarOpen, setIsSidebarOpen } = useOperationsSidebar();
@@ -288,16 +356,28 @@ function ViewOperationPage() {
   const [linkedForms, setLinkedForms] = useState([]);
   const [linkedFormsLoading, setLinkedFormsLoading] = useState(false);
 
+  /* Correction-request draft: which checklist card has its comment box open, the
+     comment text per formCode, and the send-in-flight / result state for the
+     "Send for Correction" action. Only relevant while the operation is INPROGRESS. */
+  const [openCorrectionFor, setOpenCorrectionFor] = useState(null);
+  const [correctionDraft, setCorrectionDraft] = useState({});
+  const [sendingCorrections, setSendingCorrections] = useState(false);
+  const [correctionResult, setCorrectionResult] = useState(null); // { type: "ok"|"error", text }
+
   useEffect(() => {
-    if (pathname === "/operations/sts-operations/new") {
+    const effectivePath = returnTo || pathname;
+    if (effectivePath.startsWith("/operations/sts-operations/new/operation/")) {
+      setActiveTab("operation");
+      setExpandedModules((prev) => new Set([...prev, "operation"]));
+    } else if (effectivePath === "/operations/sts-operations/new") {
       setActiveTab("documentation");
-    } else if (pathname.startsWith("/operations/sts-operations/new/compatibility")) {
+    } else if (effectivePath.startsWith("/operations/sts-operations/new/compatibility")) {
       setActiveTab("compatibility");
-    } else if (pathname.startsWith("/operations/sts-operations/new/form-checklist")) {
+    } else if (effectivePath.startsWith("/operations/sts-operations/new/form-checklist")) {
       setActiveTab("forms");
       setExpandedModules((prev) => new Set([...prev, "forms"]));
     }
-  }, [pathname]);
+  }, [pathname, returnTo]);
 
   const fetchLinkedForms = async (opRef) => {
     if (!opRef) return;
@@ -310,6 +390,45 @@ function ViewOperationPage() {
       console.error("Failed to fetch linked forms:", err);
     } finally {
       setLinkedFormsLoading(false);
+    }
+  };
+
+  const handleCorrectionCommentChange = (formCode, comment) => {
+    setCorrectionDraft((prev) => ({ ...prev, [formCode]: comment }));
+  };
+
+  const handleToggleCorrection = (formCode) => {
+    setOpenCorrectionFor((prev) => (prev === formCode ? null : formCode));
+  };
+
+  const pendingCorrectionCount = Object.values(correctionDraft).filter((c) => c.trim()).length;
+
+  const handleSendCorrections = async () => {
+    const items = Object.entries(correctionDraft)
+      .filter(([, comment]) => comment.trim())
+      .map(([formNo, comment]) => ({ formNo, comment: comment.trim() }));
+
+    if (!items.length) return;
+
+    setSendingCorrections(true);
+    setCorrectionResult(null);
+    try {
+      const res = await fetch(`/api/operations/sts/${id}/request-corrections`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to send correction request");
+      }
+      setCorrectionResult({ type: "ok", text: data.message });
+      setCorrectionDraft({});
+      setOpenCorrectionFor(null);
+    } catch (err) {
+      setCorrectionResult({ type: "error", text: err.message || "Failed to send correction request" });
+    } finally {
+      setSendingCorrections(false);
     }
   };
 
@@ -364,7 +483,7 @@ function ViewOperationPage() {
         <div className="text-center space-y-4">
           <p className="text-red-300">{error || "Operation not found"}</p>
           <Link
-            href="/operations/sts-operations/new?tab=list"
+            href={backHref}
             className="px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 rounded-xl text-white font-medium transition"
           >
             Back to List
@@ -442,7 +561,7 @@ function ViewOperationPage() {
                         <div className="ml-4 space-y-1 mt-1.5 pl-4 border-l-2 border-orange-500/30">
                           {tab.submodules.map((submodule) => {
                             const isActiveSub = isFormsSubmoduleSidebarActive(
-                              pathname,
+                              returnTo || pathname,
                               submodule.href
                             );
                             return (
@@ -540,14 +659,14 @@ function ViewOperationPage() {
             <div className="flex items-center gap-3 flex-shrink-0">
               {canEditForm && (
               <button
-                onClick={() => router.push(`/operations/sts-operations/new/edit/${id}`)}
+                onClick={() => router.push(editHref)}
                 className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-lg text-white text-sm font-medium transition shadow-lg shadow-blue-500/30"
               >
                 Edit Operation
               </button>
               )}
               <button
-                onClick={() => router.push("/operations/sts-operations/new?tab=list")}
+                onClick={() => router.push(backHref)}
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 border border-white/20 hover:bg-white/20 transition hover:scale-110"
                 aria-label="Close"
                 title="Close"
@@ -910,7 +1029,40 @@ function ViewOperationPage() {
 
               {/* ═══════════ Linked Checklist / Form Status ═══════════ */}
               <div className="border-t border-white/10 pt-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Linked Forms Status</h3>
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                  <h3 className="text-lg font-semibold text-white">Linked Forms Status</h3>
+                  {canEditForm && op.operationStatus === "INPROGRESS" && (
+                    <button
+                      type="button"
+                      onClick={handleSendCorrections}
+                      disabled={!pendingCorrectionCount || sendingCorrections || !op.mooringMaster}
+                      title={
+                        !op.mooringMaster
+                          ? "Assign a mooring master to this operation first"
+                          : !pendingCorrectionCount
+                            ? "Use + on a form below to queue a correction comment first"
+                            : undefined
+                      }
+                      className="inline-flex items-center gap-2 rounded-lg bg-orange-500 px-3.5 py-2 text-xs font-semibold text-white shadow-lg shadow-orange-500/30 transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {sendingCorrections
+                        ? "Sending…"
+                        : `Send for Correction${pendingCorrectionCount ? ` (${pendingCorrectionCount})` : ""}`}
+                    </button>
+                  )}
+                </div>
+
+                {correctionResult && (
+                  <div
+                    className={`mb-4 rounded-lg border px-3 py-2 text-xs ${
+                      correctionResult.type === "ok"
+                        ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-100"
+                        : "border-red-400/40 bg-red-500/10 text-red-100"
+                    }`}
+                  >
+                    {correctionResult.text}
+                  </div>
+                )}
 
                 {linkedFormsLoading ? (
                   <div className="flex items-center gap-2 text-sm text-slate-400 py-4">
@@ -925,7 +1077,16 @@ function ViewOperationPage() {
                         <h4 className="text-sm font-semibold text-white/80 mb-3">Checklists</h4>
                         <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-4">
                           {linkedForms.filter((f) => f.category === "checklist").map((f) => (
-                            <LinkedFormStatusCard key={f.formCode} form={f} documents={op.documents} />
+                            <LinkedFormStatusCard
+                              key={f.formCode}
+                              form={f}
+                              documents={op.documents}
+                              allowCorrection={canEditForm && op.operationStatus === "INPROGRESS"}
+                              isCorrectionOpen={openCorrectionFor === f.formCode}
+                              correctionComment={correctionDraft[f.formCode] || ""}
+                              onToggleCorrection={handleToggleCorrection}
+                              onCorrectionCommentChange={handleCorrectionCommentChange}
+                            />
                           ))}
                         </div>
                       </div>
@@ -1072,14 +1233,14 @@ function ViewOperationPage() {
               {/* Action Buttons */}
               <div className="flex justify-end gap-4 pt-6 border-t border-white/10">
                 <Link
-                  href="/operations/sts-operations/new?tab=list"
+                  href={backHref}
                   className="px-6 py-3 rounded-xl border border-white/20 bg-white/5 text-white hover:bg-white/10 transition"
                 >
                   Back to List
                 </Link>
                 {canEditForm && (
                 <button
-                  onClick={() => router.push(`/operations/sts-operations/new/edit/${id}`)}
+                  onClick={() => router.push(editHref)}
                   className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold shadow-lg shadow-blue-500/30 transition"
                 >
                   Edit Operation

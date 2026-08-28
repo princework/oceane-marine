@@ -9,7 +9,7 @@ import {
 
 const OIL_MAJOR_COLORS = ["#10b981", "#f59e0b", "#8b5cf6"];
 
-export default function HrCharts() {
+export default function HrCharts({ refreshKey }) {
   const router = useRouter();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -34,7 +34,7 @@ export default function HrCharts() {
 
   useEffect(() => {
     fetchStats();
-  }, [fetchStats]);
+  }, [fetchStats, refreshKey]);
 
   if (error) {
   return (

@@ -39,7 +39,7 @@ const DONUT_COLORS = [
 /* ================================================================
    MAIN COMPONENT
    ================================================================ */
-export default function PMSCharts() {
+export default function PMSCharts({ refreshKey }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -65,7 +65,7 @@ export default function PMSCharts() {
 
   useEffect(() => {
     fetchStats();
-  }, [fetchStats]);
+  }, [fetchStats, refreshKey]);
 
   /* ---------- Early returns ---------- */
   if (error) {
@@ -267,7 +267,7 @@ export default function PMSCharts() {
         </div>
 
         {/* Equipment currently in Use */}
-        <div className="md:col-span-2 lg:col-span-5">
+        <div className="md:col-span-2 lg:col-span-5 min-h-0">
           <EquipmentInUseTable items={stats.equipmentInUse || []} />
         </div>
       </div>
@@ -411,24 +411,24 @@ function EquipmentInUseTable({ items }) {
           Equipment Currently In Use
         </h3>
       </div>
-      <div className="flex-1 overflow-x-auto overflow-y-auto max-h-[280px] md:max-h-[340px] styled-scrollbar">
+      <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto styled-scrollbar">
         {items.length > 0 ? (
           <table className="w-full text-[10px] md:text-xs min-w-[500px]">
-            <thead className="sticky top-0 bg-orange-950/50 z-10">
+            <thead className="sticky top-0 z-10">
               <tr className="border-b border-orange-400/20">
-                <th className="text-left px-2 md:px-4 py-1.5 md:py-2.5 text-orange-200/80 font-semibold whitespace-nowrap">
+                <th className="text-left px-2 md:px-4 py-1.5 md:py-2.5 text-orange-200/80 font-semibold whitespace-nowrap bg-slate-900">
                   Date
                 </th>
-                <th className="text-left px-2 md:px-4 py-1.5 md:py-2.5 text-orange-200/80 font-semibold whitespace-nowrap">
+                <th className="text-left px-2 md:px-4 py-1.5 md:py-2.5 text-orange-200/80 font-semibold whitespace-nowrap bg-slate-900">
                   Ops
                 </th>
-                <th className="text-left px-2 md:px-4 py-1.5 md:py-2.5 text-orange-200/80 font-semibold whitespace-nowrap">
+                <th className="text-left px-2 md:px-4 py-1.5 md:py-2.5 text-orange-200/80 font-semibold whitespace-nowrap bg-slate-900">
                   Equipment
                 </th>
-                <th className="text-left px-2 md:px-4 py-1.5 md:py-2.5 text-orange-200/80 font-semibold whitespace-nowrap">
+                <th className="text-left px-2 md:px-4 py-1.5 md:py-2.5 text-orange-200/80 font-semibold whitespace-nowrap bg-slate-900">
                   Type
                 </th>
-                <th className="text-left px-2 md:px-4 py-1.5 md:py-2.5 text-orange-200/80 font-semibold whitespace-nowrap">
+                <th className="text-left px-2 md:px-4 py-1.5 md:py-2.5 text-orange-200/80 font-semibold whitespace-nowrap bg-slate-900">
                   Location
                 </th>
               </tr>

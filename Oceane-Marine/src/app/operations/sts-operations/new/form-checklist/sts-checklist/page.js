@@ -208,9 +208,6 @@ export default function StsChecklistPage() {
     };
   };
 
-  // Forms that need separate copy buttons (001A, 005D, 028)
-  const formsWithSeparateCopy = ['OPS-OFD-001A', 'OPS-OFD-005D', 'OPS-OFD-028'];
-
   /** Emails all checklist links for the selected operation to that operation's assigned mooring master. */
   const handleSendToMooringMaster = async () => {
     const ref = selectedOperationRef?.trim();
@@ -582,45 +579,31 @@ export default function StsChecklistPage() {
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                 </svg>
-                                Create New Form
+                                View Form
                               </a>
-                              <a
-                                href={getFormLinks(form.formNo).updateLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-3 py-1.5 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 hover:border-blue-400/50 text-blue-300 hover:text-blue-200 text-xs font-medium transition-all duration-200 flex items-center justify-center gap-1.5"
+                              <button
+                                onClick={() => {
+                                  const linkWithRef = getFormLinks(form.formNo).createLink;
+                                  handleCopyLink(linkWithRef, form.formNo);
+                                }}
+                                className="px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/30 hover:border-sky-400/50 text-sky-300 hover:text-sky-200 text-xs font-medium transition-all duration-200 flex items-center justify-center gap-1.5"
                               >
-                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                Update Form
-                              </a>
-                              {/* Separate copy button for 001A, 005D, 028 */}
-                              {formsWithSeparateCopy.includes(form.formNo) && (
-                                <button
-                                  onClick={() => {
-                                    const linkWithRef = getFormLinks(form.formNo).createLink;
-                                    handleCopyLink(linkWithRef, form.formNo);
-                                  }}
-                                  className="px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/30 hover:border-sky-400/50 text-sky-300 hover:text-sky-200 text-xs font-medium transition-all duration-200 flex items-center justify-center gap-1.5"
-                                >
-                                  {copiedLink === form.formNo ? (
-                                    <>
-                                      <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                      </svg>
-                                      <span className="text-green-400">Copied</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                      </svg>
-                                      <span>Copy Link</span>
-                                    </>
-                                  )}
-                                </button>
-                              )}
+                                {copiedLink === form.formNo ? (
+                                  <>
+                                    <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <span className="text-green-400">Copied</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                    <span>Copy Link</span>
+                                  </>
+                                )}
+                              </button>
                             </div>
                           ) : (
                             // Show copy link button when no operation ref is selected

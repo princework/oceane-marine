@@ -4,6 +4,9 @@ import { useEffect, useState, useRef } from "react";
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
+/** Get a free key at maptiler.com and set NEXT_PUBLIC_MAPTILER_KEY — falls back to a plainer, keyless basemap when unset. */
+const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY?.trim();
+
 /* ─────────── colour helpers ─────────── */
 function markerColour(loc) {
   if (loc.inProgress > 0) return "#60a5fa"; // light blue – active
@@ -20,13 +23,18 @@ function markerRadius(total) {
 }
 
 /* ─────────── auto-fit bounds ─────────── */
+/** Fits the view to the markers once on first load only — a periodic background
+ * refresh must never yank the user's zoom/pan back to fit-all. */
 function FitBounds({ markers }) {
   const map = useMap();
+  const hasFitRef = useRef(false);
 
   useEffect(() => {
+    if (hasFitRef.current) return;
     if (!markers || markers.length === 0) return;
     const bounds = markers.map((m) => [m.lat, m.lng]);
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: 6 });
+    hasFitRef.current = true;
   }, [markers, map]);
 
   return null;
@@ -35,14 +43,20 @@ function FitBounds({ markers }) {
 /* ================================================================
    MAIN COMPONENT
    ================================================================ */
-export default function OperationsMap({ year, month }) {
+export default function OperationsMap({ year, month, refreshKey }) {
   const [markers, setMarkers] = useState([]);
   const [loading, setLoading] = useState(true);
   const mapRef = useRef(null);
+  const lastFilterRef = useRef(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
+      // Only show the full loading overlay when year/month actually changed —
+      // a periodic background refresh (refreshKey alone) should update
+      // markers quietly in place, not flash a spinner over the map every 5 minutes.
+      const filterKey = `${year || ""}:${month || ""}`;
+      if (lastFilterRef.current !== filterKey) setLoading(true);
+      lastFilterRef.current = filterKey;
       try {
         const params = new URLSearchParams();
         if (year)  params.append("year", year.toString());
@@ -61,7 +75,7 @@ export default function OperationsMap({ year, month }) {
       }
     };
     fetchData();
-  }, [year, month]);
+  }, [year, month, refreshKey]);
 
   const totalOps = markers.reduce((s, m) => s + m.total, 0);
 
@@ -103,11 +117,27 @@ export default function OperationsMap({ year, month }) {
           className="w-full h-full"
           style={{ background: "#dce6f0" }}
         >
-          {/* Light tile layer – CartoDB Positron (light / white background) */}
-          <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-            attribution=""
-          />
+          {MAPTILER_KEY ? (
+            /* MapTiler "dataviz" — a clean, modern light style designed for
+               overlaying data markers, English labels, free tier (100k
+               loads/month, no card required). Needs NEXT_PUBLIC_MAPTILER_KEY. */
+            <TileLayer
+              url={`https://api.maptiler.com/maps/dataviz/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`}
+              attribution='&copy; <a href="https://www.maptiler.com/copyright/">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              tileSize={512}
+              zoomOffset={-1}
+            />
+          ) : (
+            /* Fallback while no MapTiler key is configured — free, no key,
+               English labels, just plainer-looking than MapTiler's styles. */
+            <>
+              <TileLayer
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+                attribution="Tiles &copy; Esri"
+              />
+              <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}" />
+            </>
+          )}
 
           {/* Auto-fit when data changes */}
           {markers.length > 0 && <FitBounds markers={markers} />}

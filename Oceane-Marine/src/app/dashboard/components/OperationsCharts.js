@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import OperationsMap from "./OperationsMap";
 import WeatherMonitoring from "./WeatherMonitoring";
+import { DashboardBarChart } from "./charts/DashboardChartPrimitives";
 
 /* chart.js — lazy-loaded so main bundle stays small (same pattern as PMSCharts) */
 const BarChart = dynamic(
@@ -101,7 +102,7 @@ function formatNumber(num) {
   }
 }
 
-export default function OperationsCharts() {
+export default function OperationsCharts({ refreshKey }) {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedMonth, setSelectedMonth] = useState(null);
@@ -156,8 +157,10 @@ export default function OperationsCharts() {
 
   useEffect(() => {
     fetchStats();
+    // Re-fetches in place on the dashboard's periodic refresh (refreshKey) without
+    // remounting this component — keeps the map's zoom/pan and other UI state intact.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedYear, selectedMonth]);
+  }, [selectedYear, selectedMonth, refreshKey]);
 
   const handleYearChange = (year) => {
     setSelectedYear(Number(year));
@@ -290,7 +293,7 @@ export default function OperationsCharts() {
       </div>
 
       {/* Operations Map */}
-      <OperationsMap year={selectedYear} month={selectedMonth} />
+      <OperationsMap year={selectedYear} month={selectedMonth} refreshKey={refreshKey} />
 
       {/* Weather Monitoring */}
       <WeatherMonitoring />
@@ -300,25 +303,30 @@ export default function OperationsCharts() {
         {/* Location-wise Operations */}
         <div className="rounded-xl md:rounded-2xl border border-white/20 bg-gradient-to-br from-slate-900/95 to-slate-800/95 backdrop-blur-md shadow-2xl p-3 sm:p-4 md:p-6">
           <h2 className="text-sm sm:text-base md:text-lg font-bold text-white mb-3 md:mb-4">Location-wise Operations</h2>
-          <div className="h-48 sm:h-56 md:h-64 flex items-end justify-around gap-1 sm:gap-2 px-1 sm:px-2">
+          <div className="space-y-3 sm:space-y-3.5">
             {locationData.length > 0 ? (
-              locationData.slice(0, 6).map((item) => {
+              locationData.slice(0, 6).map((item, i) => {
                 const maxValue = Math.max(...locationData.map((d) => d.count), 1);
-                const height = (item.count / maxValue) * 100;
+                const width = Math.max((item.count / maxValue) * 100, 6);
                 return (
-                  <div key={item.name} className="flex-1 flex flex-col items-center gap-1">
-                    <div
-                      className="w-full bg-white/10 rounded-t relative"
-                      style={{ height: `${height}%`, minHeight: "4px" }}
-                    >
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-blue-500 to-blue-400 rounded-t"></div>
-                      <span className="absolute -top-5 left-1/2 transform -translate-x-1/2 text-[10px] sm:text-xs font-semibold text-white whitespace-nowrap">
+                  <div key={item.name} className="group">
+                    <div className="flex items-center justify-between mb-1 gap-2">
+                      <span
+                        className="text-[11px] sm:text-xs font-medium text-slate-200 truncate"
+                        title={item.name}
+                      >
+                        {item.name}
+                      </span>
+                      <span className="text-[11px] sm:text-xs font-bold text-white shrink-0 tabular-nums">
                         {item.count}
                       </span>
                     </div>
-                    <span className="text-[8px] sm:text-[10px] font-semibold text-slate-300 text-center leading-tight break-words">
-                      {item.name.length > 8 ? item.name.substring(0, 8) : item.name}
-                    </span>
+                    <div className="h-2 sm:h-2.5 w-full rounded-full bg-white/10 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-sky-500 to-blue-400 transition-all duration-500 group-hover:from-sky-400 group-hover:to-blue-300"
+                        style={{ width: `${width}%` }}
+                      />
+                    </div>
                   </div>
                 );
               })
@@ -331,33 +339,18 @@ export default function OperationsCharts() {
         {/* Most Used Mooring Master */}
         <div className="rounded-xl md:rounded-2xl border border-white/20 bg-gradient-to-br from-slate-900/95 to-slate-800/95 backdrop-blur-md shadow-2xl p-3 sm:p-4 md:p-6">
           <h2 className="text-sm sm:text-base md:text-lg font-bold text-white mb-3 md:mb-4">Most Used Mooring Master</h2>
-          <div className="space-y-3">
-            {stats.mostUsedMooringMaster.length > 0 ? (
-              stats.mostUsedMooringMaster.slice(0, 5).map((item, idx) => {
-                const maxCount = Math.max(...stats.mostUsedMooringMaster.map((d) => d.count), 1);
-                const width = (item.count / maxCount) * 100;
-                return (
-                  <div key={item.name} className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-300">{item.name}</span>
-                      <span className="text-xs font-bold text-white">{item.count}</span>
-                    </div>
-                    <div className="w-full bg-white/10 rounded-full h-4 relative overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${width}%`,
-                          backgroundColor: idx === 0 ? "#f97316" : idx === 1 ? "#eab308" : "#3b82f6",
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center py-8 text-slate-400 text-sm">No mooring master data</div>
-            )}
-          </div>
+          {stats.mostUsedMooringMaster.length > 0 ? (
+            <DashboardBarChart
+              labels={stats.mostUsedMooringMaster.slice(0, 5).map((d) => d.name)}
+              data={stats.mostUsedMooringMaster.slice(0, 5).map((d) => d.count)}
+              color="#3b82f6"
+              hoverColor="#60a5fa"
+              unitLabel="operations"
+              className="h-48 sm:h-56 md:h-64"
+            />
+          ) : (
+            <div className="text-center py-8 text-slate-400 text-sm">No mooring master data</div>
+          )}
         </div>
 
         {/* Cargo Types */}

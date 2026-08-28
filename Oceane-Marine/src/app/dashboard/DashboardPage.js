@@ -51,7 +51,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const menuRef = useRef(null);
 
-  const DASHBOARD_REFRESH_MS = 60_000;
+  const DASHBOARD_REFRESH_MS = 5 * 60_000;
 
   useEffect(() => {
     if (!DASHBOARD_AUTO_REFRESH_TABS.has(activeTab)) {
@@ -297,7 +297,7 @@ export default function DashboardPage() {
           </div>
 
           <DashboardTabs
-            key={dataRefreshKey}
+            refreshKey={dataRefreshKey}
             activeTab={activeTab}
             onTabChange={handleTabChange}
           />
