@@ -6,7 +6,7 @@ const ALL_SIDEBAR_TABS = [
   },
   {
     key: "operation",
-    label: "Operation",
+    label: "Operation Stages",
     submodules: [
       {
         key: "lined-up",
